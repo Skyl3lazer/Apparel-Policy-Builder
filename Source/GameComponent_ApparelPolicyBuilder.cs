@@ -24,8 +24,7 @@ namespace ApparelPolicyBuilder
         public override void ExposeData()
         {
             if (Scribe.mode == LoadSaveMode.Saving) Prune();
-            // Key bumped so pre-v2 rulesets (different rule schema) are dropped rather than misread.
-            Scribe_Collections.Look(ref rulesets, "rulesetsV2", LookMode.Value, LookMode.Deep);
+            Scribe_Collections.Look(ref rulesets, "rulesets", LookMode.Value, LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.LoadingVars && rulesets == null)
                 rulesets = new Dictionary<int, Ruleset>();
         }

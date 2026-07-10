@@ -18,6 +18,7 @@ Applying is just a normal edit of the vanilla policy: the mod only flips which a
 ## Dependencies
 
 - [Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077)
+- (Optional) [Material Filter (Harmony)](https://steamcommunity.com/sharedfiles/filedetails/?id=3698331639) - Adds a material category to the filters dropdown to let you set allowed materials through the rule engine.
 
 ## Supported versions
 

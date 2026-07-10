@@ -245,18 +245,18 @@ namespace ApparelPolicyBuilder
                         kind = RuleAttributeKind.Categorical
                     };
                     catOptions[key] = opt;
-                    catValueLabels[key] = new Dictionary<string, string>();
+                    catValueLabels[key] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 }
 
                 Dictionary<string, string> seen = catValueLabels[key];
                 if (!tokens.TryGetValue(key, out HashSet<string> apparelSet))
                 {
-                    apparelSet = new HashSet<string>();
+                    apparelSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     tokens[key] = apparelSet;
                 }
                 foreach (CategoricalValue v in values)
                 {
-                    seen[v.token] = v.label;
+                    seen[v.token] = v.label.CapitalizeFirst();
                     apparelSet.Add(v.token);
                 }
             }

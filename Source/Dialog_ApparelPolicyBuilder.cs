@@ -52,7 +52,7 @@ namespace ApparelPolicyBuilder
                     order = g.Key == null ? int.MaxValue : g.Min(o => o.category?.displayOrder ?? int.MaxValue),
                     options = g.OrderBy(o => o.order).ThenBy(OptionLabel).ToList()
                 })
-                .OrderBy(gr => gr.order).ThenBy(gr => gr.label)
+                .OrderBy(gr => gr.isFacet).ThenBy(gr => gr.label, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             foreach (OptionGroup g in groups.Skip(1))
@@ -323,7 +323,7 @@ namespace ApparelPolicyBuilder
             foreach (AttributeRule rule in working.rules)
             {
                 if (rule.layerScope != layer) continue;
-                var rowRect = new Rect(0f, y, width, RuleRowHeight);
+                var rowRect = new Rect(12f, y, width - 12f, RuleRowHeight);
                 if (DrawRuleRow(rowRect.ContractedBy(1f), rule)) toDelete = rule;
                 y += RuleRowHeight;
             }
@@ -341,20 +341,21 @@ namespace ApparelPolicyBuilder
                 return r;
             }
 
+            if (Mouse.IsOver(row)) Widgets.DrawHighlight(row);
+
             if (rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints)
             {
-                if (Widgets.ButtonText(Slice(74f), ("APB.Bound." + rule.rangeBound).Translate()))
+                if (Widgets.ButtonText(Slice(74f), ("APB.Bound." + rule.rangeBound).Translate().CapitalizeFirst()))
                     rule.rangeBound = rule.rangeBound == RangeBound.AtLeast ? RangeBound.AtMost : RangeBound.AtLeast;
             }
-            else if (rule.kind == RuleAttributeKind.SpecialFilter)
+            else
             {
-                string allowKey = rule.polarity == RulePolarity.Require ? "APB.Special.Allow" : "APB.Special.Disallow";
-                if (Widgets.ButtonText(Slice(74f), allowKey.Translate()))
-                    rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
-            }
-            else if (Widgets.ButtonText(Slice(74f), ("APB.Polarity." + rule.polarity).Translate()))
-            {
-                rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
+                bool allow = rule.polarity == RulePolarity.Require;
+                string label = rule.kind == RuleAttributeKind.SpecialFilter
+                    ? (allow ? "APB.Special.Allow" : "APB.Special.Disallow").Translate()
+                    : ("APB.Polarity." + rule.polarity).Translate();
+                if (ColoredToggle(Slice(74f), label, allow))
+                    rule.polarity = allow ? RulePolarity.Forbid : RulePolarity.Require;
             }
 
             if (rule.IsPerDef)
@@ -393,7 +394,7 @@ namespace ApparelPolicyBuilder
                     DrawHitPointsContent(row, rule, deleteRect, x);
                     break;
                 case RuleAttributeKind.SpecialFilter:
-                    Widgets.Label(new Rect(x, row.y, Mathf.Max(deleteRect.x - gap - x, 40f), row.height),
+                    RowLabel(new Rect(x, row.y, Mathf.Max(deleteRect.x - gap - x, 40f), row.height),
                         CleanSpecialFilterLabel(rule.specialFilter));
                     break;
             }
@@ -406,11 +407,11 @@ namespace ApparelPolicyBuilder
             float fixedRight = 104f + gap + 48f;
             float labelWidth = deleteRect.x - gap - fixedRight - gap - x;
             var labelRect = Slice(Mathf.Max(labelWidth, 60f));
-            Widgets.Label(labelRect, rule.stat?.LabelCap ?? "?");
+            RowLabel(labelRect, rule.stat?.LabelCap ?? "?");
             if (rule.stat != null && !rule.stat.description.NullOrEmpty())
                 TooltipHandler.TipRegion(labelRect, rule.stat.description);
 
-            if (Widgets.ButtonText(Slice(104f), ("APB.Mode." + rule.numericMode).Translate()))
+            if (Widgets.ButtonText(Slice(104f), ("APB.Mode." + rule.numericMode).Translate().CapitalizeFirst()))
                 OpenModeMenu(rule);
 
             var valueRect = Slice(48f);
@@ -426,7 +427,7 @@ namespace ApparelPolicyBuilder
         {
             const float fieldW = 46f, pctW = 14f, gap = 4f;
             var labelRect = new Rect(x, row.y, deleteRect.x - gap - x - fieldW - pctW - gap, row.height);
-            Widgets.Label(labelRect, "APB.Facet.HitPoints".Translate());
+            RowLabel(labelRect, "APB.Facet.HitPoints".Translate());
 
             var fieldRect = new Rect(deleteRect.x - gap - pctW - fieldW, row.y, fieldW, row.height);
             float pct = Mathf.Round(rule.threshold * 100f);
@@ -434,7 +435,7 @@ namespace ApparelPolicyBuilder
             Widgets.TextFieldNumeric(fieldRect, ref pct, ref buffer, 0f, 100f);
             rule.threshold = pct / 100f;
             valueBuffers[rule] = buffer;
-            Widgets.Label(new Rect(fieldRect.xMax, row.y, pctW, row.height), "%");
+            RowLabel(new Rect(fieldRect.xMax + 2f, row.y, pctW, row.height), "%");
         }
 
         // label on the left, a single picker button filling the space before delete
@@ -443,7 +444,7 @@ namespace ApparelPolicyBuilder
             const float ctrlW = 150f;
             var ctrlRect = new Rect(deleteRect.x - gap - ctrlW, row.y, ctrlW, row.height);
             var labelRect = new Rect(x, row.y, Mathf.Max(ctrlRect.x - gap - x, 40f), row.height);
-            Widgets.Label(labelRect, label);
+            RowLabel(labelRect, label);
             if (Widgets.ButtonText(ctrlRect, valueLabel))
                 onClick();
         }
@@ -456,6 +457,23 @@ namespace ApparelPolicyBuilder
             Widgets.Label(rect, text);
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = prev;
+        }
+
+        // Vertically centres a row label so it lines up with the buttons beside it.
+        private static void RowLabel(Rect rect, string text)
+        {
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(rect, text);
+            Text.Anchor = TextAnchor.UpperLeft;
+        }
+
+        private static bool ColoredToggle(Rect rect, string label, bool positive)
+        {
+            Color prev = GUI.color;
+            GUI.color = positive ? new Color(0.5f, 0.78f, 0.5f) : new Color(0.85f, 0.5f, 0.5f);
+            bool clicked = Widgets.ButtonText(rect, label);
+            GUI.color = prev;
+            return clicked;
         }
 
         // ---- Bottom buttons ----
