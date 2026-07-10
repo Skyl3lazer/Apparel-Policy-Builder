@@ -5,10 +5,9 @@ using Verse;
 
 namespace ApparelAttributeFilter
 {
-    // Per-save home for rulesets, keyed by ApparelPolicy.id.
     public class GameComponent_ApparelAttributeFilter : GameComponent
     {
-        private Dictionary<int, Ruleset> rulesets = new Dictionary<int, Ruleset>();
+        private Dictionary<int, Ruleset> rulesets = new Dictionary<int, Ruleset>(); // keyed by ApparelPolicy.id
 
         public GameComponent_ApparelAttributeFilter(Game game) { }
 
@@ -30,7 +29,6 @@ namespace ApparelAttributeFilter
                 rulesets = new Dictionary<int, Ruleset>();
         }
 
-        // Drop rulesets whose policy no longer exists.
         private void Prune()
         {
             OutfitDatabase db = Current.Game?.outfitDatabase;

@@ -7,7 +7,6 @@ using Verse;
 
 namespace ApparelAttributeFilter
 {
-    // The filter authoring window: attributes on the left, scope-grouped rules on the right.
     public class Dialog_ApparelAttributeFilter : Window
     {
         private const float TitleHeight = 34f;
@@ -19,7 +18,7 @@ namespace ApparelAttributeFilter
         private const float RuleRowHeight = 32f;
         private const float ToolbarHeight = 32f;
 
-        // Session clipboard, shared across windows so a ruleset can be transferred between policies.
+        // Static so a ruleset can be copied between policy windows.
         private static Ruleset clipboard;
 
         private readonly ApparelPolicy policy;
@@ -110,7 +109,8 @@ namespace ApparelAttributeFilter
 
             bool searching = !searchText.NullOrEmpty();
             bool coversVisible = Matches("AAF.Covers".Translate());
-            float viewHeight = (coversVisible ? RowHeight : 0f);
+            bool materialVisible = AttributeCache.MaterialAttributes.Count > 0 && Matches("AAF.Material".Translate());
+            float viewHeight = (coversVisible ? RowHeight : 0f) + (materialVisible ? RowHeight : 0f);
             foreach (AttributeCategory cat in categories)
             {
                 int visible = cat.stats.Count(CoreMatches);
@@ -128,6 +128,13 @@ namespace ApparelAttributeFilter
             {
                 if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, RowHeight), "AAF.Covers".Translate()))
                     AddCoversRule();
+                y += RowHeight;
+            }
+
+            if (materialVisible)
+            {
+                if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, RowHeight), "AAF.Material".Translate()))
+                    AddMaterialRule();
                 y += RowHeight;
             }
 
@@ -181,7 +188,6 @@ namespace ApparelAttributeFilter
                 ? stat.category.LabelCap.ToString()
                 : "AAF.OtherCategory".Translate().ToString();
 
-        // Numeric attributes grouped by display name (duplicate-named categories merged).
         private class AttributeCategory
         {
             public string label;
@@ -210,7 +216,6 @@ namespace ApparelAttributeFilter
                 thresholdBuffers.Clear();
             }
 
-            // Right side: material lens for stuff-powered stats.
             const float ddWidth = 150f;
             var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
             string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "AAF.Multiplier".Translate().ToString();
@@ -324,17 +329,28 @@ namespace ApparelAttributeFilter
                 return r;
             }
 
-            // Polarity toggle
             if (Widgets.ButtonText(Slice(74f), ("AAF.Polarity." + rule.polarity).Translate()))
                 rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
 
-            // Scope
-            if (Widgets.ButtonText(Slice(92f), ScopeLabel(rule)))
+            // Material rules are always Global, so lock the scope control.
+            if (rule.kind == RuleAttributeKind.Material)
+            {
+                var scopeRect = Slice(92f);
+                TooltipHandler.TipRegionByKey(scopeRect, "AAF.MaterialScopeTip");
+                Color sp = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, 0.5f);
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(scopeRect, "AAF.Global".Translate());
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = sp;
+            }
+            else if (Widgets.ButtonText(Slice(92f), ScopeLabel(rule)))
+            {
                 OpenScopeMenu(rule);
+            }
 
-            // Delete (reserve at right)
             var deleteRect = new Rect(row.xMax - 24f, row.y, 24f, row.height);
-            bool delete = Widgets.ButtonText(deleteRect, "×");
+            bool delete = Widgets.ButtonImage(deleteRect, TexButton.Delete);
 
             if (rule.kind == RuleAttributeKind.Covers)
             {
@@ -344,9 +360,16 @@ namespace ApparelAttributeFilter
                         rule.coversGroup?.LabelCap ?? "AAF.Pick".Translate()))
                     OpenCoversMenu(rule);
             }
+            else if (rule.kind == RuleAttributeKind.Material)
+            {
+                Widgets.Label(Slice(58f), "AAF.MaterialLabel".Translate());
+                float pickWidth = deleteRect.x - gap - x;
+                if (Widgets.ButtonText(new Rect(x, row.y, Mathf.Max(pickWidth, 60f), row.height),
+                        rule.materialStuff?.LabelCap ?? "AAF.Pick".Translate()))
+                    OpenMaterialAttributeMenu(rule);
+            }
             else
             {
-                // Attribute label takes the flexible middle space.
                 float fixedRight = 104f + gap + 48f; // mode + gap + value
                 float labelWidth = deleteRect.x - gap - fixedRight - gap - x;
                 var labelRect = Slice(Mathf.Max(labelWidth, 60f));
@@ -421,6 +444,16 @@ namespace ApparelAttributeFilter
             collapsedScopes.Remove(null);
         }
 
+        private void AddMaterialRule()
+        {
+            working.rules.Add(new AttributeRule
+            {
+                kind = RuleAttributeKind.Material,
+                materialStuff = AttributeCache.MaterialAttributes.FirstOrDefault()
+            });
+            collapsedScopes.Remove(null); // material rules are always Global
+        }
+
         private string ScopeLabel(AttributeRule rule)
             => rule.layerScope != null ? rule.layerScope.LabelCap.ToString() : "AAF.Global".Translate().ToString();
 
@@ -458,6 +491,17 @@ namespace ApparelAttributeFilter
             {
                 BodyPartGroupDef captured = group;
                 options.Add(new FloatMenuOption(group.LabelCap, () => rule.coversGroup = captured));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void OpenMaterialAttributeMenu(AttributeRule rule)
+        {
+            var options = new List<FloatMenuOption>();
+            foreach (ThingDef material in AttributeCache.MaterialAttributes)
+            {
+                ThingDef captured = material;
+                options.Add(new FloatMenuOption(material.LabelCap, () => rule.materialStuff = captured));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }

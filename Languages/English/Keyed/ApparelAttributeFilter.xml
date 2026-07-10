@@ -7,13 +7,16 @@
 
   <!-- Window -->
   <AAF.Title>Apparel Attribute Filter</AAF.Title>
-  <AAF.SearchHint>Search attributes…</AAF.SearchHint>
+  <AAF.SearchHint>Search attributes...</AAF.SearchHint>
   <AAF.Covers>Covers</AAF.Covers>
   <AAF.CoversLabel>Covers:</AAF.CoversLabel>
+  <AAF.Material>Material</AAF.Material>
+  <AAF.MaterialLabel>Material:</AAF.MaterialLabel>
+  <AAF.MaterialScopeTip>Material rules always apply to the whole policy, they can't be limited to a single layer.</AAF.MaterialScopeTip>
   <AAF.OtherCategory>Other</AAF.OtherCategory>
   <AAF.Global>Global</AAF.Global>
   <AAF.NoRules>No rules yet.\nPick an attribute on the left to add one.</AAF.NoRules>
-  <AAF.Pick>Pick…</AAF.Pick>
+  <AAF.Pick>Pick...</AAF.Pick>
 
   <!-- Polarity -->
   <AAF.Polarity.Forbid>Forbid</AAF.Polarity.Forbid>

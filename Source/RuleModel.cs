@@ -7,24 +7,35 @@ namespace ApparelAttributeFilter
 {
     public enum RulePolarity : byte { Forbid, Require }
 
-    public enum RuleAttributeKind : byte { Numeric, Covers }
+    public enum RuleAttributeKind : byte { Numeric, Covers, Material }
 
     public enum NumericMode : byte { Positive, Negative, None, GreaterThan, LessThan, EqualTo }
 
-    // A single rule: polarity + scope + attribute + condition. See ADR 0001.
     public class AttributeRule : IExposable
     {
         public RulePolarity polarity = RulePolarity.Forbid;
-        public ApparelLayerDef layerScope;                  // null = Global
+        public ApparelLayerDef layerScope; // null = Global
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
-        public StatDef stat;                                // numeric attribute
+        public StatDef stat;
         public NumericMode numericMode = NumericMode.Negative;
-        public float threshold;                             // greater/less/equal only
-        public BodyPartGroupDef coversGroup;                // Covers attribute
+        public float threshold;
+        public BodyPartGroupDef coversGroup;
+        public ThingDef materialStuff;
 
         public AttributeRule() { }
 
-        public bool IsValid => kind == RuleAttributeKind.Covers ? coversGroup != null : stat != null;
+        public bool IsValid
+        {
+            get
+            {
+                switch (kind)
+                {
+                    case RuleAttributeKind.Covers: return coversGroup != null;
+                    case RuleAttributeKind.Material: return materialStuff != null;
+                    default: return stat != null;
+                }
+            }
+        }
 
         public bool NeedsThreshold =>
             kind == RuleAttributeKind.Numeric &&
@@ -32,8 +43,6 @@ namespace ApparelAttributeFilter
              || numericMode == NumericMode.LessThan
              || numericMode == NumericMode.EqualTo);
 
-        // Does the apparel satisfy this rule's condition, ignoring polarity and scope?
-        // evalStuff selects how stuff-powered stats are read (null = material-effect multiplier).
         public bool ConditionMatches(ApparelAttributeInfo info, ThingDef evalStuff)
         {
             if (kind == RuleAttributeKind.Covers)
@@ -56,7 +65,6 @@ namespace ApparelAttributeFilter
         public bool InScope(ApparelAttributeInfo info)
             => layerScope == null || info.Layers.Contains(layerScope);
 
-        // True if this rule disallows the apparel: Forbid removes matches, Require removes non-matches.
         public bool Disqualifies(ApparelAttributeInfo info, ThingDef evalStuff)
         {
             if (!InScope(info)) return false;
@@ -75,10 +83,10 @@ namespace ApparelAttributeFilter
             Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
             Scribe_Values.Look(ref threshold, "threshold", 0f);
             Scribe_Defs.Look(ref coversGroup, "coversGroup");
+            Scribe_Defs.Look(ref materialStuff, "materialStuff");
         }
     }
 
-    // The set of rules for one apparel policy.
     public class Ruleset : IExposable
     {
         public List<AttributeRule> rules = new List<AttributeRule>();
@@ -92,21 +100,47 @@ namespace ApparelAttributeFilter
             return copy;
         }
 
-        // Reset to all-apparel-allowed, then remove every disqualified piece.
-        // evalStuff (null = multiplier) chooses how stuff-powered stats are read.
         public void ApplyTo(ApparelPolicy policy, ThingDef evalStuff)
         {
             AttributeCache.EnsureBuilt();
             ThingFilter filter = policy.filter;
+
             foreach (ApparelAttributeInfo info in AttributeCache.Apparel)
             {
                 bool allow = true;
                 for (int i = 0; i < rules.Count; i++)
                 {
                     AttributeRule rule = rules[i];
+                    if (rule.kind == RuleAttributeKind.Material) continue; // handled in ApplyMaterialPass
                     if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
                 filter.SetAllow(info.def, allow);
+            }
+
+            ApplyMaterialPass(filter);
+        }
+
+        // Only toggles Material Filter's special filters, never apparel defs.
+        private void ApplyMaterialPass(ThingFilter filter)
+        {
+            if (!AttributeCache.MaterialFilterActive) return;
+
+            var forbidden = new HashSet<ThingDef>();
+            var required = new HashSet<ThingDef>();
+            bool hasRequire = false;
+            foreach (AttributeRule rule in rules)
+            {
+                if (rule.kind != RuleAttributeKind.Material || !rule.IsValid) continue;
+                if (rule.polarity == RulePolarity.Require) { required.Add(rule.materialStuff); hasRequire = true; }
+                else forbidden.Add(rule.materialStuff);
+            }
+
+            foreach (ThingDef material in AttributeCache.MaterialAttributes)
+            {
+                SpecialThingFilterDef sf = AttributeCache.MaterialFilterFor(material);
+                if (sf == null) continue;
+                bool allow = !forbidden.Contains(material) && (!hasRequire || required.Contains(material));
+                filter.SetAllow(sf, allow);
             }
         }
 

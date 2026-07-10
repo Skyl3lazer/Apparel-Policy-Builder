@@ -17,7 +17,6 @@ namespace ApparelAttributeFilter
         }
     }
 
-    // Adds the filter button to the Apparel Policy screen's title row.
     [HarmonyPatch(typeof(Dialog_ManagePolicies<ApparelPolicy>), "DoWindowContents")]
     public static class Patch_ApparelPolicyDialog_Button
     {

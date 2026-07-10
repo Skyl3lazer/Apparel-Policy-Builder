@@ -6,7 +6,6 @@ using Verse;
 
 namespace ApparelAttributeFilter
 {
-    // One apparel def's filterable attributes, computed once at load.
     public class ApparelAttributeInfo
     {
         public readonly ThingDef def;
@@ -26,8 +25,7 @@ namespace ApparelAttributeFilter
         public float GetStatValue(StatDef stat)
             => statValues.TryGetValue(stat, out float v) ? v : 0f;
 
-        // With a chosen material, stuff-powered stats use the real final value at that material
-        // instead of the material-effect multiplier; everything else keeps its cached value.
+        // A chosen material reads stuff-powered stats at that material instead of by the multiplier.
         public float GetStatValue(StatDef stat, ThingDef material)
         {
             if (material != null && AttributeCache.IsStuffPowered(stat) && def.MadeFromStuff
@@ -37,7 +35,6 @@ namespace ApparelAttributeFilter
         }
     }
 
-    // Load-time cache of everything the filter UI and engine need.
     public static class AttributeCache
     {
         public static List<ApparelAttributeInfo> Apparel { get; private set; }
@@ -45,13 +42,18 @@ namespace ApparelAttributeFilter
         public static List<ApparelLayerDef> Layers { get; private set; }
         public static List<BodyPartGroupDef> Covers { get; private set; }
         public static List<ThingDef> StuffMaterials { get; private set; }
+        public static bool MaterialFilterActive { get; private set; }
+        public static List<ThingDef> MaterialAttributes { get; private set; }
 
-        // Stuff-powered stats (armor, insulation) mapped to the apparel multiplier stat that gates
-        // them (StatPart_Stuff.multiplierStat). These live in no stat list; the material supplies them.
+        // Stuff-powered stats (armor/insulation) mapped to their StuffEffectMultiplier stat.
         private static Dictionary<StatDef, StatDef> stuffPoweredMultipliers;
+        private static Dictionary<ThingDef, SpecialThingFilterDef> materialFilters;
 
         public static bool IsStuffPowered(StatDef stat)
             => stuffPoweredMultipliers != null && stuffPoweredMultipliers.ContainsKey(stat);
+
+        public static SpecialThingFilterDef MaterialFilterFor(ThingDef stuff)
+            => materialFilters != null && materialFilters.TryGetValue(stuff, out SpecialThingFilterDef sf) ? sf : null;
 
         public static void EnsureBuilt()
         {
@@ -104,20 +106,38 @@ namespace ApparelAttributeFilter
             Layers = layerSet.OrderBy(l => l.drawOrder).ToList();
             Covers = coverSet.OrderBy(b => b.listOrder).ToList();
 
-            // Materials any apparel can be stuffed with, for the "evaluate as" dropdown.
             var stuffSet = new HashSet<ThingDef>();
             foreach (ApparelAttributeInfo info in apparel)
                 if (info.def.MadeFromStuff)
                     stuffSet.UnionWith(GenStuff.AllowedStuffsFor(info.def));
             StuffMaterials = stuffSet.OrderBy(s => s.label ?? s.defName).ToList();
+
+            BuildMaterialFilterMap(stuffSet);
+        }
+
+        // Detected by the presence of its generated special filters rather than by packageId.
+        private static void BuildMaterialFilterMap(HashSet<ThingDef> apparelStuffs)
+        {
+            const string prefix = "MaterialFilter_allow";
+            materialFilters = new Dictionary<ThingDef, SpecialThingFilterDef>();
+            foreach (SpecialThingFilterDef sf in DefDatabase<SpecialThingFilterDef>.AllDefsListForReading)
+            {
+                if (sf.defName == null || !sf.defName.StartsWith(prefix)) continue;
+                ThingDef stuff = DefDatabase<ThingDef>.GetNamedSilentFail(sf.defName.Substring(prefix.Length));
+                if (stuff != null) materialFilters[stuff] = sf;
+            }
+            MaterialFilterActive = materialFilters.Count > 0;
+            MaterialAttributes = materialFilters.Keys
+                .Where(apparelStuffs.Contains)
+                .OrderBy(s => s.label ?? s.defName)
+                .ToList();
         }
 
         private static Dictionary<StatDef, float> ComputeStatValues(ThingDef def)
         {
             var result = new Dictionary<StatDef, float>();
 
-            // Equipped offsets apply to the wearer, not the item, so they aren't on the item's stat
-            // card (ShouldShowFor would reject them for a non-pawn). Add them directly.
+            // Wearer offsets: ShouldShowFor rejects them for a non-pawn, so add them directly.
             if (def.equippedStatOffsets != null)
                 foreach (StatModifier sm in def.equippedStatOffsets)
                     if (sm?.stat != null && !sm.stat.alwaysHide)
@@ -126,9 +146,8 @@ namespace ApparelAttributeFilter
             ThingDef stuff = def.MadeFromStuff ? GenStuff.DefaultStuffFor(def) : null;
             StatRequest req = StatRequest.For(def, stuff);
 
-            // Item stats: the apparel's own base stats plus stats its material affects, but only those
-            // that actually apply to this apparel (the check the info card uses). This drops
-            // material-global stats a material only carries for construction, e.g. DoorOpenSpeed.
+            // ShouldShowFor keeps only stats that apply to this apparel, dropping material-global
+            // construction stats like DoorOpenSpeed that the stuff also carries.
             var candidates = new HashSet<StatDef>();
             if (def.statBases != null)
                 foreach (StatModifier sm in def.statBases)
@@ -144,8 +163,8 @@ namespace ApparelAttributeFilter
                 Add(result, stat, def.GetStatValueAbstract(stat, stuff));
             }
 
-            // Armor/insulation come from the material; gauge them by the material-effect multiplier so
-            // a piece still counts when its default material zeroes a given type.
+            // Gauge armor/insulation by the multiplier so a piece counts even when its default
+            // material zeroes a given type.
             if (stuff != null && stuffPoweredMultipliers != null)
                 foreach (KeyValuePair<StatDef, StatDef> pair in stuffPoweredMultipliers)
                 {
