@@ -17,6 +17,10 @@ namespace ApparelAttributeFilter
         private const float RowHeight = 24f;
         private const float HeaderHeight = 26f;
         private const float RuleRowHeight = 32f;
+        private const float ToolbarHeight = 32f;
+
+        // Session clipboard, shared across windows so a ruleset can be transferred between policies.
+        private static Ruleset clipboard;
 
         private readonly ApparelPolicy policy;
         private Ruleset working;
@@ -67,10 +71,14 @@ namespace ApparelAttributeFilter
             float contentTop = titleRect.yMax + 4f;
             float contentBottom = inRect.yMax - ButtonRowHeight;
             var leftRect = new Rect(inRect.x, contentTop, LeftPanelWidth, contentBottom - contentTop);
-            var rightRect = new Rect(leftRect.xMax + PanelGap, contentTop,
-                inRect.width - LeftPanelWidth - PanelGap, contentBottom - contentTop);
+
+            float rightX = leftRect.xMax + PanelGap;
+            float rightWidth = inRect.width - LeftPanelWidth - PanelGap;
+            var toolbarRect = new Rect(rightX, contentTop, rightWidth, ToolbarHeight);
+            var rightRect = new Rect(rightX, toolbarRect.yMax + 4f, rightWidth, contentBottom - toolbarRect.yMax - 4f);
 
             DrawLeftPanel(leftRect);
+            DrawRightToolbar(toolbarRect);
             DrawRightPanel(rightRect);
             DrawButtonRow(new Rect(inRect.x, contentBottom, inRect.width, ButtonRowHeight));
         }
@@ -174,6 +182,39 @@ namespace ApparelAttributeFilter
             public string label;
             public int order;
             public List<StatDef> stats;
+        }
+
+        // ---- Right: copy/paste toolbar ----
+
+        private void DrawRightToolbar(Rect rect)
+        {
+            const float bw = 104f, gap = 6f, bh = 28f;
+            float y = rect.y + (rect.height - bh) / 2f;
+
+            var copyRect = new Rect(rect.x, y, bw, bh);
+            TooltipHandler.TipRegionByKey(copyRect, "AAF.CopyTip");
+            if (Widgets.ButtonText(copyRect, "AAF.Copy".Translate()))
+                clipboard = working.Clone();
+
+            bool canPaste = clipboard != null && !clipboard.IsEmpty;
+            var pasteRect = new Rect(copyRect.xMax + gap, y, bw, bh);
+            TooltipHandler.TipRegionByKey(pasteRect, "AAF.PasteTip");
+            if (Widgets.ButtonText(pasteRect, "AAF.Paste".Translate(), active: canPaste) && canPaste)
+            {
+                working = clipboard.Clone();
+                thresholdBuffers.Clear();
+            }
+
+            if (canPaste)
+            {
+                var labelRect = new Rect(pasteRect.xMax + gap + 2f, rect.y, rect.xMax - pasteRect.xMax - gap - 2f, rect.height);
+                Color prev = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, 0.5f);
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Widgets.Label(labelRect, "AAF.Clipboard".Translate(clipboard.rules.Count));
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = prev;
+            }
         }
 
         // ---- Right: rule list grouped by scope ----

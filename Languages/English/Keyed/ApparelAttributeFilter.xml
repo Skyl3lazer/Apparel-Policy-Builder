@@ -27,6 +27,13 @@
   <AAF.Mode.LessThan>less than</AAF.Mode.LessThan>
   <AAF.Mode.EqualTo>equal to</AAF.Mode.EqualTo>
 
+  <!-- Copy/paste toolbar -->
+  <AAF.Copy>Copy</AAF.Copy>
+  <AAF.CopyTip>Copy this ruleset to the clipboard so it can be pasted into another apparel policy.</AAF.CopyTip>
+  <AAF.Paste>Paste</AAF.Paste>
+  <AAF.PasteTip>Replace this policy's ruleset with the copied one. Applies only after you press Apply or Save.</AAF.PasteTip>
+  <AAF.Clipboard>{0} rule(s) copied</AAF.Clipboard>
+
   <!-- Bottom buttons -->
   <AAF.Apply>Apply</AAF.Apply>
   <AAF.ApplyTip>Recompute the policy from scratch: allow all apparel, then remove every piece disqualified by a rule. Overwrites the policy's current toggles, and saves these rules.</AAF.ApplyTip>
