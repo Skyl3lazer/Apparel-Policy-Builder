@@ -91,36 +91,40 @@ namespace ApparelAttributeFilter
             Covers = coverSet.OrderBy(b => b.listOrder).ToList();
         }
 
-        // sum of statBases + equippedStatOffsets, evaluated at default stuff
         private static Dictionary<StatDef, float> ComputeStatValues(ThingDef def)
         {
             var result = new Dictionary<StatDef, float>();
 
-            // Equipped offsets are flat (stuff-independent).
+            // Equipped offsets apply to the wearer, not the item, so they aren't on the item's stat
+            // card (ShouldShowFor would reject them for a non-pawn). Add them directly.
             if (def.equippedStatOffsets != null)
                 foreach (StatModifier sm in def.equippedStatOffsets)
                     if (sm?.stat != null && !sm.stat.alwaysHide)
                         Add(result, sm.stat, sm.value);
 
-            // Base stats plus any stat the default stuff modifies, at that stuff's value.
             ThingDef stuff = def.MadeFromStuff ? GenStuff.DefaultStuffFor(def) : null;
-            var baseStats = new HashSet<StatDef>();
+            StatRequest req = StatRequest.For(def, stuff);
+
+            // Item stats: the apparel's own base stats plus stats its material affects, but only those
+            // that actually apply to this apparel (the check the info card uses). This drops
+            // material-global stats a material only carries for construction, e.g. DoorOpenSpeed.
+            var candidates = new HashSet<StatDef>();
             if (def.statBases != null)
                 foreach (StatModifier sm in def.statBases)
-                    if (sm?.stat != null) baseStats.Add(sm.stat);
+                    if (sm?.stat != null) candidates.Add(sm.stat);
             if (stuff?.stuffProps != null)
             {
-                CollectStats(stuff.stuffProps.statOffsets, baseStats);
-                CollectStats(stuff.stuffProps.statFactors, baseStats);
+                CollectStats(stuff.stuffProps.statOffsets, candidates);
+                CollectStats(stuff.stuffProps.statFactors, candidates);
             }
-
-            foreach (StatDef stat in baseStats)
+            foreach (StatDef stat in candidates)
             {
-                if (stat.alwaysHide) continue;
+                if (stat.alwaysHide || !stat.Worker.ShouldShowFor(req)) continue;
                 Add(result, stat, def.GetStatValueAbstract(stat, stuff));
             }
 
-            // Look at material multiplier for stuffables
+            // Armor/insulation come from the material; gauge them by the material-effect multiplier so
+            // a piece still counts when its default material zeroes a given type.
             if (stuff != null && stuffPoweredMultipliers != null)
                 foreach (KeyValuePair<StatDef, StatDef> pair in stuffPoweredMultipliers)
                 {
