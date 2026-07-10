@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{9DC99A58-A2CB-4C53-A235-1718605AEA82}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApparelAttributeFilter", "Source\ApparelAttributeFilter.csproj", "{3758D251-CED0-4726-B7F0-6F31789B6F9B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApparelPolicyBuilder", "Source\ApparelPolicyBuilder.csproj", "{3758D251-CED0-4726-B7F0-6F31789B6F9B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

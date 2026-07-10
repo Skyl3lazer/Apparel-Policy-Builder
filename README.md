@@ -1,12 +1,12 @@
-# Apparel Attribute Filter
+# Apparel Policy Builder
 
-A RimWorld mod that adds an **Attribute Filter** button to the Apparel Policy screen. Instead of hunting through a flat list of every apparel item, you write rules over the attributes apparel provides: armor, insulation, shooting accuracy, what body parts it covers, and any other stat. Apply them to toggle apparel on or off across the whole policy in one click.
+A RimWorld mod that adds a **Policy Builder** button to the Apparel Policy screen. Instead of hunting through a flat list of every apparel item, you write rules over the attributes apparel provides: armor, insulation, shooting accuracy, what body parts it covers, and any other stat. Apply them to toggle apparel on or off across the whole policy in one click.
 
 Applying is just a normal edit of the vanilla policy: the mod only flips which apparel pieces are allowed, so it stays compatible with everything else that reads an apparel policy. Nothing runs on tick, and attribute data is cached once at load.
 
 ## How it works
 
-1) Open **Apparel Policies** and click **Attribute Filter**.
+1) Open **Apparel Policies** and click **Policy Builder**.
 2) Pick an attribute from the left to add a rule about it
 3) Each rule is **Require** or **Forbid**, and is scoped either **Globally** or to a single apparel **Layer** (so you can build a whole outfit layer by layer). For example:
 

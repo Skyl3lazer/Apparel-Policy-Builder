@@ -4,7 +4,7 @@ using System.Linq;
 using RimWorld;
 using Verse;
 
-namespace ApparelAttributeFilter
+namespace ApparelPolicyBuilder
 {
     public class ApparelAttributeInfo
     {
@@ -53,6 +53,7 @@ namespace ApparelAttributeFilter
         public RuleAttributeKind kind;
         public StatDef stat;                 // Numeric
         public List<CategoricalValue> values; // Categorical
+        public SpecialThingFilterDef specialFilter; // SpecialFilter
     }
 
     public static class AttributeCache
@@ -124,7 +125,7 @@ namespace ApparelAttributeFilter
                 }
                 catch (Exception e)
                 {
-                    Log.Warning($"[Apparel Attribute Filter] Skipped caching {def.defName}: {e.Message}");
+                    Log.Warning($"[Apparel Policy Builder] Skipped caching {def.defName}: {e.Message}");
                 }
             }
 
@@ -145,12 +146,13 @@ namespace ApparelAttributeFilter
                     .Select(p => new CategoricalValue { token = p.Key, label = p.Value })
                     .OrderBy(v => v.label).ToList();
 
-            Options = BuildOptions(numericSet, catOptions.Values);
+            Options = BuildOptions(numericSet, catOptions.Values, DiscoverSpecialFilters(apparel));
             optionsByKey = new Dictionary<string, AttributeOption>();
             foreach (AttributeOption o in Options) optionsByKey[o.key] = o;
         }
 
-        private static List<AttributeOption> BuildOptions(HashSet<StatDef> numericSet, IEnumerable<AttributeOption> categorical)
+        private static List<AttributeOption> BuildOptions(HashSet<StatDef> numericSet,
+            IEnumerable<AttributeOption> categorical, List<SpecialThingFilterDef> specialFilters)
         {
             var options = new List<AttributeOption>();
             foreach (StatDef s in numericSet)
@@ -170,7 +172,43 @@ namespace ApparelAttributeFilter
                 options.Add(new AttributeOption { key = "facet:hitpoints", order = 1, kind = RuleAttributeKind.HitPoints });
             if (MaterialFilterActive && MaterialAttributes.Count > 0)
                 options.Add(new AttributeOption { key = "facet:material", order = 2, kind = RuleAttributeKind.Material });
+            int i = 10;
+            foreach (SpecialThingFilterDef sf in specialFilters)
+                options.Add(new AttributeOption
+                {
+                    key = "sf:" + sf.defName,
+                    label = sf.LabelCap,
+                    order = i++,
+                    kind = RuleAttributeKind.SpecialFilter,
+                    specialFilter = sf
+                });
             return options;
+        }
+
+        // The special filters the apparel policy tree draws: those structurally attached to the
+        // Apparel category (its own, its descendants', and its ancestors') and able to match apparel,
+        // minus the one the dialog hides and Material Filter's per-material filters.
+        private static List<SpecialThingFilterDef> DiscoverSpecialFilters(List<ApparelAttributeInfo> apparel)
+        {
+            var result = new List<SpecialThingFilterDef>();
+            ThingCategoryDef apparelCat = ThingCategoryDefOf.Apparel;
+            if (apparelCat == null) return result;
+
+            var candidates = new HashSet<SpecialThingFilterDef>();
+            foreach (SpecialThingFilterDef sf in apparelCat.DescendantSpecialThingFilterDefs) candidates.Add(sf);
+            foreach (SpecialThingFilterDef sf in apparelCat.ParentsSpecialThingFilterDefs) candidates.Add(sf);
+
+            foreach (SpecialThingFilterDef sf in candidates)
+            {
+                if (sf == null || !sf.configurable || sf == SpecialThingFilterDefOf.AllowNonDeadmansApparel) continue;
+                if (sf.defName != null && sf.defName.StartsWith("MaterialFilter_allow")) continue;
+                bool matches = false;
+                foreach (ApparelAttributeInfo info in apparel)
+                    if (sf.Worker.CanEverMatch(info.def)) { matches = true; break; }
+                if (matches) result.Add(sf);
+            }
+            result.Sort((a, b) => string.Compare(a.LabelCap, b.LabelCap, StringComparison.OrdinalIgnoreCase));
+            return result;
         }
 
         // Reads an apparel's info-card categorical entries, registering each as an option and

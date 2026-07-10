@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>ApparelAttributeFilter</RootNamespace>
-    <AssemblyName>ApparelAttributeFilter</AssemblyName>
+    <RootNamespace>ApparelPolicyBuilder</RootNamespace>
+    <AssemblyName>ApparelPolicyBuilder</AssemblyName>
     <Nullable>disable</Nullable>
     <NoWarn>CS0436;CS0108;CS0114</NoWarn>
     <DebugType>none</DebugType>

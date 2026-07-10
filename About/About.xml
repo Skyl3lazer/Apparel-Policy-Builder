@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <packageId>Skyl3lazer.ApparelAttributeFilter</packageId>
-  <name>Apparel Attribute Filter</name>
+  <packageId>Skyl3lazer.ApparelPolicyBuilder</packageId>
+  <name>Apparel Policy Builder</name>
   <author>Skyl3lazer</author>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
   <description>Define rule-based apparel policies quickly and easily.</description>
-  <modVersion>1.1</modVersion>
+  <modVersion>1.2</modVersion>
   <url>https://steamcommunity.com/sharedfiles/filedetails/?id=3761873351</url>
   <modDependencies>
     <li>

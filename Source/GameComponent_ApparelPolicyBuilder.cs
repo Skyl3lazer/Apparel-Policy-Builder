@@ -3,13 +3,13 @@ using System.Linq;
 using RimWorld;
 using Verse;
 
-namespace ApparelAttributeFilter
+namespace ApparelPolicyBuilder
 {
-    public class GameComponent_ApparelAttributeFilter : GameComponent
+    public class GameComponent_ApparelPolicyBuilder : GameComponent
     {
         private Dictionary<int, Ruleset> rulesets = new Dictionary<int, Ruleset>(); // keyed by ApparelPolicy.id
 
-        public GameComponent_ApparelAttributeFilter(Game game) { }
+        public GameComponent_ApparelPolicyBuilder(Game game) { }
 
         public Ruleset GetRuleset(ApparelPolicy policy)
             => policy != null && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
@@ -39,7 +39,7 @@ namespace ApparelAttributeFilter
             foreach (int id in dead) rulesets.Remove(id);
         }
 
-        public static GameComponent_ApparelAttributeFilter Instance
-            => Current.Game?.GetComponent<GameComponent_ApparelAttributeFilter>();
+        public static GameComponent_ApparelPolicyBuilder Instance
+            => Current.Game?.GetComponent<GameComponent_ApparelPolicyBuilder>();
     }
 }

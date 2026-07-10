@@ -7,8 +7,8 @@
     <exclude>.github</exclude>
     <exclude>.gitignore</exclude>
     <exclude>.vscode</exclude>
-    <exclude>Apparel Attribute Filter.code-workspace</exclude>
-    <exclude>ApparelAttributeFilter.sln</exclude>
+    <exclude>Apparel Policy Builder.code-workspace</exclude>
+    <exclude>ApparelPolicyBuilder.sln</exclude>
     <exclude>Source</exclude>
     <exclude>docs</exclude>
     <exclude>CONTEXT.md</exclude>

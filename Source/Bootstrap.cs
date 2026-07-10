@@ -4,14 +4,14 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace ApparelAttributeFilter
+namespace ApparelPolicyBuilder
 {
     [StaticConstructorOnStartup]
     public static class Bootstrap
     {
         static Bootstrap()
         {
-            var harmony = new Harmony("Skyl3lazer.ApparelAttributeFilter");
+            var harmony = new Harmony("Skyl3lazer.ApparelPolicyBuilder");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
             AttributeCache.EnsureBuilt();
         }
@@ -28,12 +28,12 @@ namespace ApparelAttributeFilter
             if (___policyInt == null) return;
 
             var buttonRect = new Rect(inRect.xMax - ButtonWidth, inRect.y + 2f, ButtonWidth, ButtonHeight);
-            TooltipHandler.TipRegionByKey(buttonRect, "AAF.OpenFilterTip");
-            if (!Widgets.ButtonText(buttonRect, "AAF.OpenFilter".Translate())) return;
+            TooltipHandler.TipRegionByKey(buttonRect, "APB.OpenFilterTip");
+            if (!Widgets.ButtonText(buttonRect, "APB.OpenFilter".Translate())) return;
 
-            var existing = Find.WindowStack.WindowOfType<Dialog_ApparelAttributeFilter>();
+            var existing = Find.WindowStack.WindowOfType<Dialog_ApparelPolicyBuilder>();
             if (existing != null) existing.Close();
-            else Find.WindowStack.Add(new Dialog_ApparelAttributeFilter(___policyInt));
+            else Find.WindowStack.Add(new Dialog_ApparelPolicyBuilder(___policyInt));
         }
     }
 }

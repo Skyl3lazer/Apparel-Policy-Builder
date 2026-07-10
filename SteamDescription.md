@@ -1,12 +1,12 @@
-[h1]Apparel Attribute Filter[/h1]
+[h1]Apparel Policy Builder[/h1]
 
-A RimWorld mod that adds an [b]Attribute Filter[/b] button to the Apparel Policy screen. Instead of hunting through a flat list of every apparel item, you write rules over the attributes apparel provides: armor, insulation, shooting accuracy, what body parts it covers, and any other stat. Apply them to toggle apparel on or off across the whole policy in one click.
+A RimWorld mod that adds a [b]Policy Builder[/b] button to the Apparel Policy screen. Instead of hunting through a flat list of every apparel item, you write rules over the attributes apparel provides: armor, insulation, shooting accuracy, what body parts it covers, and any other stat. Apply them to toggle apparel on or off across the whole policy in one click.
 
 Applying is just a normal edit of the vanilla policy: the mod only flips which apparel pieces are allowed, so it stays compatible with everything else that reads an apparel policy. Nothing runs on tick, and attribute data is cached once at load.
 
 [h2]How it works[/h2]
 [olist]
-[*]Open [b]Apparel Policies[/b] and click [b]Attribute Filter[/b].
+[*]Open [b]Apparel Policies[/b] and click [b]Policy Builder[/b].
 [*]Pick an attribute from the left to add a rule about it
 [*]Each rule is [b]Require[/b] or [b]Forbid[/b], and is scoped either [b]Globally[/b] or to a single apparel [b]Layer[/b] (so you can build a whole outfit layer by layer). For example:
 [list]
@@ -37,4 +37,4 @@ Applying is just a normal edit of the vanilla policy: the mod only flips which a
 
 This mod was partially developed with the assistance of AI tools, used by an actual programmer who understands the mod and any code it produced.
 
-Full source available on [url=https://github.com/Skyl3lazer/Apparel-Attribute-Filter]GitHub[/url]
+Full source available on [url=https://github.com/Skyl3lazer/Apparel-Policy-Builder]GitHub[/url]

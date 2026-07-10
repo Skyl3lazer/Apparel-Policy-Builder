@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- Button on the Apparel Policy screen -->
+  <APB.OpenFilter>Policy Builder</APB.OpenFilter>
+  <APB.OpenFilterTip>Open the policy builder to build rules that toggle apparel in this policy by armor, insulation, coverage and other stats.</APB.OpenFilterTip>
+
+  <!-- Window -->
+  <APB.Title>Apparel Policy Builder</APB.Title>
+  <APB.SearchHint>Search attributes...</APB.SearchHint>
+  <APB.OtherCategory>Other</APB.OtherCategory>
+  <APB.FacetsGroup>Filters</APB.FacetsGroup>
+  <APB.Global>Global</APB.Global>
+  <APB.NoRules>No rules yet.\nPick an attribute on the left to add one.</APB.NoRules>
+  <APB.Pick>Pick...</APB.Pick>
+  <APB.FacetScopeTip>Applies to the whole policy; it can't be limited to a single layer.</APB.FacetScopeTip>
+
+  <!-- Filter facets -->
+  <APB.Facet.Quality>Quality</APB.Facet.Quality>
+  <APB.Facet.HitPoints>Hit Points</APB.Facet.HitPoints>
+  <APB.Facet.Material>Material</APB.Facet.Material>
+
+  <!-- Polarity -->
+  <APB.Polarity.Forbid>Forbid</APB.Polarity.Forbid>
+  <APB.Polarity.Require>Require</APB.Polarity.Require>
+
+  <!-- Range bounds (Quality / Hit Points) -->
+  <APB.Bound.AtLeast>at least</APB.Bound.AtLeast>
+  <APB.Bound.AtMost>at most</APB.Bound.AtMost>
+
+  <!-- Special filter facets (tainted, biocoded, ...) -->
+  <APB.Special.Allow>Allow</APB.Special.Allow>
+  <APB.Special.Disallow>Disallow</APB.Special.Disallow>
+
+  <!-- Numeric modes -->
+  <APB.Mode.Positive>positive</APB.Mode.Positive>
+  <APB.Mode.Negative>negative</APB.Mode.Negative>
+  <APB.Mode.None>none</APB.Mode.None>
+  <APB.Mode.GreaterThan>greater than</APB.Mode.GreaterThan>
+  <APB.Mode.LessThan>less than</APB.Mode.LessThan>
+  <APB.Mode.EqualTo>equal to</APB.Mode.EqualTo>
+
+  <!-- Copy/paste toolbar -->
+  <APB.Copy>Copy</APB.Copy>
+  <APB.CopyTip>Copy this ruleset to the clipboard so it can be pasted into another apparel policy.</APB.CopyTip>
+  <APB.Paste>Paste</APB.Paste>
+  <APB.PasteTip>Replace this policy's ruleset with the copied one. Applies only after you press Apply or Save.</APB.PasteTip>
+
+  <!-- Stuffable evaluation lens -->
+  <APB.EvalAs>Evaluate stuffables as:</APB.EvalAs>
+  <APB.EvalAsTip>How to read armor and insulation for stuffable apparel. "Multiplier" uses the material-effect multiplier so any piece that can take armor/insulation counts. Pick a material to instead use the actual value that material would give (only affects apparel that can be made from it).</APB.EvalAsTip>
+  <APB.Multiplier>Multiplier</APB.Multiplier>
+
+  <!-- Bottom buttons -->
+  <APB.Apply>Apply</APB.Apply>
+  <APB.ApplyTip>Recompute the policy from scratch: allow all apparel, then remove every piece disqualified by a rule. Overwrites the policy's current toggles, and saves these rules.</APB.ApplyTip>
+  <APB.Save>Save</APB.Save>
+  <APB.SaveTip>Save these rules without changing the policy's current apparel toggles.</APB.SaveTip>
+  <APB.Cancel>Cancel</APB.Cancel>
+
+</LanguageData>

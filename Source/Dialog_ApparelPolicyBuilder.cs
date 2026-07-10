@@ -5,9 +5,9 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace ApparelAttributeFilter
+namespace ApparelPolicyBuilder
 {
-    public class Dialog_ApparelAttributeFilter : Window
+    public class Dialog_ApparelPolicyBuilder : Window
     {
         private const float TitleHeight = 34f;
         private const float ButtonRowHeight = 40f;
@@ -35,12 +35,12 @@ namespace ApparelAttributeFilter
 
         public override Vector2 InitialSize => new Vector2(940f, 590f);
 
-        public Dialog_ApparelAttributeFilter(ApparelPolicy policy)
+        public Dialog_ApparelPolicyBuilder(ApparelPolicy policy)
         {
             this.policy = policy;
             AttributeCache.EnsureBuilt();
 
-            Ruleset stored = GameComponent_ApparelAttributeFilter.Instance?.GetRuleset(policy);
+            Ruleset stored = GameComponent_ApparelPolicyBuilder.Instance?.GetRuleset(policy);
             working = stored != null ? stored.Clone() : new Ruleset();
 
             groups = AttributeCache.Options
@@ -69,7 +69,7 @@ namespace ApparelAttributeFilter
         {
             var titleRect = new Rect(inRect.x, inRect.y, inRect.width, TitleHeight);
             using (new TextBlock(GameFont.Medium))
-                Widgets.Label(titleRect, "AAF.Title".Translate());
+                Widgets.Label(titleRect, "APB.Title".Translate());
             Text.Font = GameFont.Small;
 
             float contentTop = titleRect.yMax + 4f;
@@ -101,7 +101,7 @@ namespace ApparelAttributeFilter
                 Color prev = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, 0.45f);
                 Widgets.Label(new Rect(searchRect.x + 4f, searchRect.y, searchRect.width - 8f, searchRect.height),
-                    "AAF.SearchHint".Translate());
+                    "APB.SearchHint".Translate());
                 GUI.color = prev;
             }
 
@@ -166,8 +166,7 @@ namespace ApparelAttributeFilter
 
         private static string GroupKey(AttributeOption o)
         {
-            if (o.kind == RuleAttributeKind.Quality || o.kind == RuleAttributeKind.HitPoints
-                || o.kind == RuleAttributeKind.Material)
+            if (o.kind != RuleAttributeKind.Numeric && o.kind != RuleAttributeKind.Categorical)
                 return null; // facets group
             return o.category == null || o.category.label.NullOrEmpty()
                 ? "__other__" : o.category.LabelCap.ToString();
@@ -175,8 +174,8 @@ namespace ApparelAttributeFilter
 
         private static string GroupLabel(string key)
         {
-            if (key == null) return "AAF.FacetsGroup".Translate();
-            if (key == "__other__") return "AAF.OtherCategory".Translate();
+            if (key == null) return "APB.FacetsGroup".Translate();
+            if (key == "__other__") return "APB.OtherCategory".Translate();
             return key;
         }
 
@@ -184,11 +183,20 @@ namespace ApparelAttributeFilter
         {
             switch (o.kind)
             {
-                case RuleAttributeKind.Quality: return "AAF.Facet.Quality".Translate();
-                case RuleAttributeKind.HitPoints: return "AAF.Facet.HitPoints".Translate();
-                case RuleAttributeKind.Material: return "AAF.Facet.Material".Translate();
+                case RuleAttributeKind.Quality: return "APB.Facet.Quality".Translate();
+                case RuleAttributeKind.HitPoints: return "APB.Facet.HitPoints".Translate();
+                case RuleAttributeKind.Material: return "APB.Facet.Material".Translate();
+                case RuleAttributeKind.SpecialFilter: return CleanSpecialFilterLabel(o.specialFilter);
                 default: return o.label;
             }
+        }
+
+        private static string CleanSpecialFilterLabel(SpecialThingFilterDef sf)
+        {
+            string label = sf?.LabelCap;
+            if (label.NullOrEmpty()) return label;
+            return label.StartsWith("allow ", StringComparison.OrdinalIgnoreCase)
+                ? label.Substring(6).CapitalizeFirst() : label;
         }
 
         private class OptionGroup
@@ -207,14 +215,14 @@ namespace ApparelAttributeFilter
             float y = rect.y + (rect.height - bh) / 2f;
 
             var copyRect = new Rect(rect.x, y, bw, bh);
-            TooltipHandler.TipRegionByKey(copyRect, "AAF.CopyTip");
-            if (Widgets.ButtonText(copyRect, "AAF.Copy".Translate()))
+            TooltipHandler.TipRegionByKey(copyRect, "APB.CopyTip");
+            if (Widgets.ButtonText(copyRect, "APB.Copy".Translate()))
                 clipboard = working.Clone();
 
             bool canPaste = clipboard != null && !clipboard.IsEmpty;
             var pasteRect = new Rect(copyRect.xMax + gap, y, bw, bh);
-            TooltipHandler.TipRegionByKey(pasteRect, "AAF.PasteTip");
-            if (Widgets.ButtonText(pasteRect, "AAF.Paste".Translate(), active: canPaste) && canPaste)
+            TooltipHandler.TipRegionByKey(pasteRect, "APB.PasteTip");
+            if (Widgets.ButtonText(pasteRect, "APB.Paste".Translate(), active: canPaste) && canPaste)
             {
                 working = clipboard.Clone();
                 valueBuffers.Clear();
@@ -222,8 +230,8 @@ namespace ApparelAttributeFilter
 
             const float ddWidth = 150f;
             var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
-            string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "AAF.Multiplier".Translate().ToString();
-            TooltipHandler.TipRegionByKey(ddRect, "AAF.EvalAsTip");
+            string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "APB.Multiplier".Translate().ToString();
+            TooltipHandler.TipRegionByKey(ddRect, "APB.EvalAsTip");
             if (Widgets.ButtonText(ddRect, ddLabel))
                 OpenMaterialLensMenu();
 
@@ -231,7 +239,7 @@ namespace ApparelAttributeFilter
             Color prev = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, 0.6f);
             Text.Anchor = TextAnchor.MiddleRight;
-            Widgets.Label(ddLabelRect, "AAF.EvalAs".Translate());
+            Widgets.Label(ddLabelRect, "APB.EvalAs".Translate());
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = prev;
         }
@@ -248,7 +256,7 @@ namespace ApparelAttributeFilter
                 Color prev = GUI.color;
                 GUI.color = new Color(0.7f, 0.7f, 0.7f);
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(inner, "AAF.NoRules".Translate());
+                Widgets.Label(inner, "APB.NoRules".Translate());
                 Text.Anchor = TextAnchor.UpperLeft;
                 GUI.color = prev;
                 return;
@@ -280,7 +288,7 @@ namespace ApparelAttributeFilter
             AttributeRule toDelete = null;
 
             if (hasGlobal)
-                DrawScopeGroup("AAF.Global".Translate(), null, viewRect.width, ref y, ref toDelete);
+                DrawScopeGroup("APB.Global".Translate(), null, viewRect.width, ref y, ref toDelete);
             foreach (ApparelLayerDef layer in scopeLayers)
                 DrawScopeGroup(layer.LabelCap, layer, viewRect.width, ref y, ref toDelete);
 
@@ -333,14 +341,18 @@ namespace ApparelAttributeFilter
                 return r;
             }
 
-            bool isRange = rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints;
-
-            if (isRange)
+            if (rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints)
             {
-                if (Widgets.ButtonText(Slice(74f), ("AAF.Bound." + rule.rangeBound).Translate()))
+                if (Widgets.ButtonText(Slice(74f), ("APB.Bound." + rule.rangeBound).Translate()))
                     rule.rangeBound = rule.rangeBound == RangeBound.AtLeast ? RangeBound.AtMost : RangeBound.AtLeast;
             }
-            else if (Widgets.ButtonText(Slice(74f), ("AAF.Polarity." + rule.polarity).Translate()))
+            else if (rule.kind == RuleAttributeKind.SpecialFilter)
+            {
+                string allowKey = rule.polarity == RulePolarity.Require ? "APB.Special.Allow" : "APB.Special.Disallow";
+                if (Widgets.ButtonText(Slice(74f), allowKey.Translate()))
+                    rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
+            }
+            else if (Widgets.ButtonText(Slice(74f), ("APB.Polarity." + rule.polarity).Translate()))
             {
                 rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
             }
@@ -353,8 +365,8 @@ namespace ApparelAttributeFilter
             else
             {
                 var scopeRect = Slice(92f);
-                TooltipHandler.TipRegionByKey(scopeRect, "AAF.FacetScopeTip");
-                DrawFaded(scopeRect, "AAF.Global".Translate(), TextAnchor.MiddleCenter);
+                TooltipHandler.TipRegionByKey(scopeRect, "APB.FacetScopeTip");
+                DrawFaded(scopeRect, "APB.Global".Translate(), TextAnchor.MiddleCenter);
             }
 
             var deleteRect = new Rect(row.xMax - 24f, row.y, 24f, row.height);
@@ -370,15 +382,19 @@ namespace ApparelAttributeFilter
                         CategoricalValueLabel(rule), () => OpenCategoricalMenu(rule));
                     break;
                 case RuleAttributeKind.Material:
-                    DrawSingleValueRow(row, deleteRect, x, gap, "AAF.Facet.Material".Translate(),
-                        rule.materialStuff?.LabelCap ?? "AAF.Pick".Translate(), () => OpenMaterialMenu(rule));
+                    DrawSingleValueRow(row, deleteRect, x, gap, "APB.Facet.Material".Translate(),
+                        rule.materialStuff?.LabelCap ?? "APB.Pick".Translate(), () => OpenMaterialMenu(rule));
                     break;
                 case RuleAttributeKind.Quality:
-                    DrawSingleValueRow(row, deleteRect, x, gap, "AAF.Facet.Quality".Translate(),
+                    DrawSingleValueRow(row, deleteRect, x, gap, "APB.Facet.Quality".Translate(),
                         rule.qualityValue.GetLabel().CapitalizeFirst(), () => OpenQualityMenu(rule));
                     break;
                 case RuleAttributeKind.HitPoints:
                     DrawHitPointsContent(row, rule, deleteRect, x);
+                    break;
+                case RuleAttributeKind.SpecialFilter:
+                    Widgets.Label(new Rect(x, row.y, Mathf.Max(deleteRect.x - gap - x, 40f), row.height),
+                        CleanSpecialFilterLabel(rule.specialFilter));
                     break;
             }
 
@@ -394,7 +410,7 @@ namespace ApparelAttributeFilter
             if (rule.stat != null && !rule.stat.description.NullOrEmpty())
                 TooltipHandler.TipRegion(labelRect, rule.stat.description);
 
-            if (Widgets.ButtonText(Slice(104f), ("AAF.Mode." + rule.numericMode).Translate()))
+            if (Widgets.ButtonText(Slice(104f), ("APB.Mode." + rule.numericMode).Translate()))
                 OpenModeMenu(rule);
 
             var valueRect = Slice(48f);
@@ -410,7 +426,7 @@ namespace ApparelAttributeFilter
         {
             const float fieldW = 46f, pctW = 14f, gap = 4f;
             var labelRect = new Rect(x, row.y, deleteRect.x - gap - x - fieldW - pctW - gap, row.height);
-            Widgets.Label(labelRect, "AAF.Facet.HitPoints".Translate());
+            Widgets.Label(labelRect, "APB.Facet.HitPoints".Translate());
 
             var fieldRect = new Rect(deleteRect.x - gap - pctW - fieldW, row.y, fieldW, row.height);
             float pct = Mathf.Round(rule.threshold * 100f);
@@ -455,25 +471,25 @@ namespace ApparelAttributeFilter
             var saveRect = new Rect(applyRect.xMax + gap, y, bw, bh);
             var cancelRect = new Rect(saveRect.xMax + gap, y, bw, bh);
 
-            TooltipHandler.TipRegionByKey(applyRect, "AAF.ApplyTip");
-            if (Widgets.ButtonText(applyRect, "AAF.Apply".Translate()))
+            TooltipHandler.TipRegionByKey(applyRect, "APB.ApplyTip");
+            if (Widgets.ButtonText(applyRect, "APB.Apply".Translate()))
             {
                 Commit();
                 working.ApplyTo(policy, evalStuff);
                 Close();
             }
-            TooltipHandler.TipRegionByKey(saveRect, "AAF.SaveTip");
-            if (Widgets.ButtonText(saveRect, "AAF.Save".Translate()))
+            TooltipHandler.TipRegionByKey(saveRect, "APB.SaveTip");
+            if (Widgets.ButtonText(saveRect, "APB.Save".Translate()))
             {
                 Commit();
                 Close();
             }
-            if (Widgets.ButtonText(cancelRect, "AAF.Cancel".Translate()))
+            if (Widgets.ButtonText(cancelRect, "APB.Cancel".Translate()))
                 Close();
         }
 
         private void Commit()
-            => GameComponent_ApparelAttributeFilter.Instance?.Store(policy, working.Clone());
+            => GameComponent_ApparelPolicyBuilder.Instance?.Store(policy, working.Clone());
 
         // ---- Rule construction / menus ----
 
@@ -489,6 +505,7 @@ namespace ApparelAttributeFilter
                     break;
                 case RuleAttributeKind.HitPoints: rule.threshold = 0.5f; break;
                 case RuleAttributeKind.Material: rule.materialStuff = AttributeCache.MaterialAttributes.FirstOrDefault(); break;
+                case RuleAttributeKind.SpecialFilter: rule.specialFilter = opt.specialFilter; break;
             }
             working.rules.Add(rule);
             collapsedScopes.Remove(null);
@@ -500,17 +517,17 @@ namespace ApparelAttributeFilter
         {
             AttributeOption opt = OptionFor(rule);
             CategoricalValue v = opt?.values.FirstOrDefault(cv => cv.token == rule.categoricalValue);
-            return v?.label ?? rule.categoricalValue ?? "AAF.Pick".Translate();
+            return v?.label ?? rule.categoricalValue ?? "APB.Pick".Translate();
         }
 
         private string ScopeLabel(AttributeRule rule)
-            => rule.layerScope != null ? rule.layerScope.LabelCap.ToString() : "AAF.Global".Translate().ToString();
+            => rule.layerScope != null ? rule.layerScope.LabelCap.ToString() : "APB.Global".Translate().ToString();
 
         private void OpenScopeMenu(AttributeRule rule)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("AAF.Global".Translate(), () => { rule.layerScope = null; collapsedScopes.Remove(null); })
+                new FloatMenuOption("APB.Global".Translate(), () => { rule.layerScope = null; collapsedScopes.Remove(null); })
             };
             foreach (ApparelLayerDef layer in AttributeCache.Layers)
             {
@@ -527,7 +544,7 @@ namespace ApparelAttributeFilter
             foreach (NumericMode mode in Enum.GetValues(typeof(NumericMode)))
             {
                 NumericMode captured = mode;
-                options.Add(new FloatMenuOption(("AAF.Mode." + mode).Translate(), () => rule.numericMode = captured));
+                options.Add(new FloatMenuOption(("APB.Mode." + mode).Translate(), () => rule.numericMode = captured));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }
@@ -571,7 +588,7 @@ namespace ApparelAttributeFilter
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("AAF.Multiplier".Translate(), () => evalStuff = null)
+                new FloatMenuOption("APB.Multiplier".Translate(), () => evalStuff = null)
             };
             foreach (ThingDef material in AttributeCache.StuffMaterials)
             {

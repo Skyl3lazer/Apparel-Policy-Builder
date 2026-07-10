@@ -3,11 +3,11 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace ApparelAttributeFilter
+namespace ApparelPolicyBuilder
 {
     public enum RulePolarity : byte { Forbid, Require }
 
-    public enum RuleAttributeKind : byte { Numeric, Categorical, Quality, HitPoints, Material }
+    public enum RuleAttributeKind : byte { Numeric, Categorical, Quality, HitPoints, Material, SpecialFilter }
 
     public enum NumericMode : byte { Positive, Negative, None, GreaterThan, LessThan, EqualTo }
 
@@ -30,6 +30,7 @@ namespace ApparelAttributeFilter
         public QualityCategory qualityValue = QualityCategory.Normal;
 
         public ThingDef materialStuff;
+        public SpecialThingFilterDef specialFilter; // Require = allow, Forbid = disallow
 
         public AttributeRule() { }
 
@@ -45,6 +46,7 @@ namespace ApparelAttributeFilter
                     case RuleAttributeKind.Numeric: return stat != null;
                     case RuleAttributeKind.Categorical: return !attrKey.NullOrEmpty() && categoricalValue != null;
                     case RuleAttributeKind.Material: return materialStuff != null;
+                    case RuleAttributeKind.SpecialFilter: return specialFilter != null;
                     default: return true;
                 }
             }
@@ -100,6 +102,7 @@ namespace ApparelAttributeFilter
             Scribe_Values.Look(ref rangeBound, "rangeBound", RangeBound.AtLeast);
             Scribe_Values.Look(ref qualityValue, "qualityValue", QualityCategory.Normal);
             Scribe_Defs.Look(ref materialStuff, "materialStuff");
+            Scribe_Defs.Look(ref specialFilter, "specialFilter");
         }
     }
 
@@ -135,6 +138,15 @@ namespace ApparelAttributeFilter
 
             ApplyMaterialPass(filter);
             ApplyRangePasses(filter);
+            ApplySpecialFilterPass(filter);
+        }
+
+        // Each special-filter rule allows or disallows its filter on the policy.
+        private void ApplySpecialFilterPass(ThingFilter filter)
+        {
+            foreach (AttributeRule rule in rules)
+                if (rule.kind == RuleAttributeKind.SpecialFilter && rule.specialFilter != null)
+                    filter.SetAllow(rule.specialFilter, rule.polarity == RulePolarity.Require);
         }
 
         // Only toggles Material Filter's special filters, never apparel defs.
