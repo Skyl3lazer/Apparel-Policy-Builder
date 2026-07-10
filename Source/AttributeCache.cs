@@ -25,6 +25,16 @@ namespace ApparelAttributeFilter
 
         public float GetStatValue(StatDef stat)
             => statValues.TryGetValue(stat, out float v) ? v : 0f;
+
+        // With a chosen material, stuff-powered stats use the real final value at that material
+        // instead of the material-effect multiplier; everything else keeps its cached value.
+        public float GetStatValue(StatDef stat, ThingDef material)
+        {
+            if (material != null && AttributeCache.IsStuffPowered(stat) && def.MadeFromStuff
+                && material.stuffProps != null && material.stuffProps.CanMake(def))
+                return def.GetStatValueAbstract(stat, material);
+            return GetStatValue(stat);
+        }
     }
 
     // Load-time cache of everything the filter UI and engine need.
@@ -34,10 +44,14 @@ namespace ApparelAttributeFilter
         public static List<StatDef> NumericAttributes { get; private set; }
         public static List<ApparelLayerDef> Layers { get; private set; }
         public static List<BodyPartGroupDef> Covers { get; private set; }
+        public static List<ThingDef> StuffMaterials { get; private set; }
 
         // Stuff-powered stats (armor, insulation) mapped to the apparel multiplier stat that gates
         // them (StatPart_Stuff.multiplierStat). These live in no stat list; the material supplies them.
         private static Dictionary<StatDef, StatDef> stuffPoweredMultipliers;
+
+        public static bool IsStuffPowered(StatDef stat)
+            => stuffPoweredMultipliers != null && stuffPoweredMultipliers.ContainsKey(stat);
 
         public static void EnsureBuilt()
         {
@@ -89,6 +103,13 @@ namespace ApparelAttributeFilter
                 .ToList();
             Layers = layerSet.OrderBy(l => l.drawOrder).ToList();
             Covers = coverSet.OrderBy(b => b.listOrder).ToList();
+
+            // Materials any apparel can be stuffed with, for the "evaluate as" dropdown.
+            var stuffSet = new HashSet<ThingDef>();
+            foreach (ApparelAttributeInfo info in apparel)
+                if (info.def.MadeFromStuff)
+                    stuffSet.UnionWith(GenStuff.AllowedStuffsFor(info.def));
+            StuffMaterials = stuffSet.OrderBy(s => s.label ?? s.defName).ToList();
         }
 
         private static Dictionary<StatDef, float> ComputeStatValues(ThingDef def)

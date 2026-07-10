@@ -34,6 +34,11 @@
   <AAF.PasteTip>Replace this policy's ruleset with the copied one. Applies only after you press Apply or Save.</AAF.PasteTip>
   <AAF.Clipboard>{0} rule(s) copied</AAF.Clipboard>
 
+  <!-- Stuffable evaluation lens -->
+  <AAF.EvalAs>Evaluate stuffables as:</AAF.EvalAs>
+  <AAF.EvalAsTip>How to read armor and insulation for stuffable apparel. "Multiplier" uses the material-effect multiplier so any piece that can take armor/insulation counts. Pick a material to instead use the actual value that material would give (only affects apparel that can be made from it).</AAF.EvalAsTip>
+  <AAF.Multiplier>Multiplier</AAF.Multiplier>
+
   <!-- Bottom buttons -->
   <AAF.Apply>Apply</AAF.Apply>
   <AAF.ApplyTip>Recompute the policy from scratch: allow all apparel, then remove every piece disqualified by a rule. Overwrites the policy's current toggles, and saves these rules.</AAF.ApplyTip>

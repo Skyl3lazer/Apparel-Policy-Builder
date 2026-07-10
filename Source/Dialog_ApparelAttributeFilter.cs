@@ -26,10 +26,12 @@ namespace ApparelAttributeFilter
         private Ruleset working;
         private readonly List<AttributeCategory> categories;
         private readonly HashSet<string> collapsedCategories = new HashSet<string>();
+        private readonly HashSet<ApparelLayerDef> collapsedScopes = new HashSet<ApparelLayerDef>(); // holds null for Global
 
         private string searchText = "";
         private Vector2 leftScroll;
         private Vector2 rightScroll;
+        private ThingDef evalStuff; // null = evaluate stuff-powered stats by the material multiplier
         private readonly Dictionary<AttributeRule, string> thresholdBuffers = new Dictionary<AttributeRule, string>();
 
         public override Vector2 InitialSize => new Vector2(940f, 590f);
@@ -188,7 +190,7 @@ namespace ApparelAttributeFilter
 
         private void DrawRightToolbar(Rect rect)
         {
-            const float bw = 104f, gap = 6f, bh = 28f;
+            const float bw = 96f, gap = 6f, bh = 28f;
             float y = rect.y + (rect.height - bh) / 2f;
 
             var copyRect = new Rect(rect.x, y, bw, bh);
@@ -205,16 +207,21 @@ namespace ApparelAttributeFilter
                 thresholdBuffers.Clear();
             }
 
-            if (canPaste)
-            {
-                var labelRect = new Rect(pasteRect.xMax + gap + 2f, rect.y, rect.xMax - pasteRect.xMax - gap - 2f, rect.height);
-                Color prev = GUI.color;
-                GUI.color = new Color(1f, 1f, 1f, 0.5f);
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Widgets.Label(labelRect, "AAF.Clipboard".Translate(clipboard.rules.Count));
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = prev;
-            }
+            // Right side: material lens for stuff-powered stats.
+            const float ddWidth = 150f;
+            var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
+            string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "AAF.Multiplier".Translate().ToString();
+            TooltipHandler.TipRegionByKey(ddRect, "AAF.EvalAsTip");
+            if (Widgets.ButtonText(ddRect, ddLabel))
+                OpenMaterialMenu();
+
+            var ddLabelRect = new Rect(pasteRect.xMax + gap, rect.y, ddRect.x - pasteRect.xMax - gap * 2f, rect.height);
+            Color prev = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.6f);
+            Text.Anchor = TextAnchor.MiddleRight;
+            Widgets.Label(ddLabelRect, "AAF.EvalAs".Translate());
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = prev;
         }
 
         // ---- Right: rule list grouped by scope ----
@@ -242,9 +249,18 @@ namespace ApparelAttributeFilter
             bool hasGlobal = working.rules.Any(r => r.layerScope == null);
 
             float viewHeight = 0f;
-            if (hasGlobal) viewHeight += HeaderHeight + working.rules.Count(r => r.layerScope == null) * RuleRowHeight;
+            if (hasGlobal)
+            {
+                viewHeight += HeaderHeight;
+                if (!collapsedScopes.Contains(null))
+                    viewHeight += working.rules.Count(r => r.layerScope == null) * RuleRowHeight;
+            }
             foreach (ApparelLayerDef layer in scopeLayers)
-                viewHeight += HeaderHeight + working.rules.Count(r => r.layerScope == layer) * RuleRowHeight;
+            {
+                viewHeight += HeaderHeight;
+                if (!collapsedScopes.Contains(layer))
+                    viewHeight += working.rules.Count(r => r.layerScope == layer) * RuleRowHeight;
+            }
 
             var viewRect = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(viewHeight, inner.height));
             Widgets.BeginScrollView(inner, ref rightScroll, viewRect);
@@ -267,9 +283,22 @@ namespace ApparelAttributeFilter
 
         private void DrawScopeGroup(string label, ApparelLayerDef layer, float width, ref float y, ref AttributeRule toDelete)
         {
+            bool collapsed = collapsedScopes.Contains(layer);
+            int count = working.rules.Count(r => r.layerScope == layer);
+
             var headerRect = new Rect(0f, y, width, HeaderHeight);
-            Widgets.Label(headerRect, label);
+            if (Mouse.IsOver(headerRect)) Widgets.DrawHighlight(headerRect);
+            var iconRect = new Rect(headerRect.x + 2f, headerRect.y + (HeaderHeight - 16f) / 2f, 16f, 16f);
+            GUI.DrawTexture(iconRect, collapsed ? TexButton.Plus : TexButton.Minus);
+            Widgets.Label(new Rect(headerRect.x + 22f, headerRect.y, headerRect.width - 22f, headerRect.height),
+                $"{label} ({count})");
+            if (Widgets.ButtonInvisible(headerRect))
+            {
+                if (!collapsedScopes.Remove(layer)) collapsedScopes.Add(layer);
+            }
             y += HeaderHeight;
+
+            if (collapsed) return;
 
             foreach (AttributeRule rule in working.rules)
             {
@@ -355,7 +384,7 @@ namespace ApparelAttributeFilter
             if (Widgets.ButtonText(applyRect, "AAF.Apply".Translate()))
             {
                 Commit();
-                working.ApplyTo(policy);
+                working.ApplyTo(policy, evalStuff);
                 Close();
             }
             TooltipHandler.TipRegionByKey(saveRect, "AAF.SaveTip");
@@ -419,6 +448,20 @@ namespace ApparelAttributeFilter
             {
                 BodyPartGroupDef captured = group;
                 options.Add(new FloatMenuOption(group.LabelCap, () => rule.coversGroup = captured));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void OpenMaterialMenu()
+        {
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("AAF.Multiplier".Translate(), () => evalStuff = null)
+            };
+            foreach (ThingDef material in AttributeCache.StuffMaterials)
+            {
+                ThingDef captured = material;
+                options.Add(new FloatMenuOption(material.LabelCap, () => evalStuff = captured));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }

@@ -33,13 +33,14 @@ namespace ApparelAttributeFilter
              || numericMode == NumericMode.EqualTo);
 
         // Does the apparel satisfy this rule's condition, ignoring polarity and scope?
-        public bool ConditionMatches(ApparelAttributeInfo info)
+        // evalStuff selects how stuff-powered stats are read (null = material-effect multiplier).
+        public bool ConditionMatches(ApparelAttributeInfo info, ThingDef evalStuff)
         {
             if (kind == RuleAttributeKind.Covers)
                 return coversGroup != null && info.Covers.Contains(coversGroup);
 
             if (stat == null) return false;
-            float v = info.GetStatValue(stat);
+            float v = info.GetStatValue(stat, evalStuff);
             switch (numericMode)
             {
                 case NumericMode.Positive: return v > 0f;
@@ -56,10 +57,10 @@ namespace ApparelAttributeFilter
             => layerScope == null || info.Layers.Contains(layerScope);
 
         // True if this rule disallows the apparel: Forbid removes matches, Require removes non-matches.
-        public bool Disqualifies(ApparelAttributeInfo info)
+        public bool Disqualifies(ApparelAttributeInfo info, ThingDef evalStuff)
         {
             if (!InScope(info)) return false;
-            bool matches = ConditionMatches(info);
+            bool matches = ConditionMatches(info, evalStuff);
             return polarity == RulePolarity.Forbid ? matches : !matches;
         }
 
@@ -91,8 +92,9 @@ namespace ApparelAttributeFilter
             return copy;
         }
 
-        // ADR 0001: reset to all-apparel-allowed, then remove every disqualified piece.
-        public void ApplyTo(ApparelPolicy policy)
+        // Reset to all-apparel-allowed, then remove every disqualified piece.
+        // evalStuff (null = multiplier) chooses how stuff-powered stats are read.
+        public void ApplyTo(ApparelPolicy policy, ThingDef evalStuff)
         {
             AttributeCache.EnsureBuilt();
             ThingFilter filter = policy.filter;
@@ -102,7 +104,7 @@ namespace ApparelAttributeFilter
                 for (int i = 0; i < rules.Count; i++)
                 {
                     AttributeRule rule = rules[i];
-                    if (rule.IsValid && rule.Disqualifies(info)) { allow = false; break; }
+                    if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
                 filter.SetAllow(info.def, allow);
             }
