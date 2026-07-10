@@ -56,6 +56,9 @@ namespace ApparelAttributeFilter
                 .OrderBy(c => c.order).ThenBy(c => c.label)
                 .ToList();
 
+            foreach (AttributeCategory cat in categories.Skip(1))
+                collapsedCategories.Add(cat.label);
+
             doCloseX = true;
             draggable = true;
             closeOnClickedOutside = false;
@@ -403,14 +406,20 @@ namespace ApparelAttributeFilter
         // ---- Rule construction / menus ----
 
         private void AddNumericRule(StatDef stat)
-            => working.rules.Add(new AttributeRule { kind = RuleAttributeKind.Numeric, stat = stat });
+        {
+            working.rules.Add(new AttributeRule { kind = RuleAttributeKind.Numeric, stat = stat });
+            collapsedScopes.Remove(null); // new rules land in Global; reveal it
+        }
 
         private void AddCoversRule()
-            => working.rules.Add(new AttributeRule
+        {
+            working.rules.Add(new AttributeRule
             {
                 kind = RuleAttributeKind.Covers,
                 coversGroup = AttributeCache.Covers.FirstOrDefault()
             });
+            collapsedScopes.Remove(null);
+        }
 
         private string ScopeLabel(AttributeRule rule)
             => rule.layerScope != null ? rule.layerScope.LabelCap.ToString() : "AAF.Global".Translate().ToString();
@@ -419,12 +428,13 @@ namespace ApparelAttributeFilter
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("AAF.Global".Translate(), () => rule.layerScope = null)
+                new FloatMenuOption("AAF.Global".Translate(), () => { rule.layerScope = null; collapsedScopes.Remove(null); })
             };
             foreach (ApparelLayerDef layer in AttributeCache.Layers)
             {
                 ApparelLayerDef captured = layer;
-                options.Add(new FloatMenuOption(layer.LabelCap, () => rule.layerScope = captured));
+                options.Add(new FloatMenuOption(layer.LabelCap,
+                    () => { rule.layerScope = captured; collapsedScopes.Remove(captured); }));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }
