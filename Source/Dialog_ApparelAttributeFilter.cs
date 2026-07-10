@@ -23,15 +23,15 @@ namespace ApparelAttributeFilter
 
         private readonly ApparelPolicy policy;
         private Ruleset working;
-        private readonly List<AttributeCategory> categories;
-        private readonly HashSet<string> collapsedCategories = new HashSet<string>();
+        private readonly List<OptionGroup> groups;
+        private readonly HashSet<string> collapsedGroups = new HashSet<string>();
         private readonly HashSet<ApparelLayerDef> collapsedScopes = new HashSet<ApparelLayerDef>(); // holds null for Global
 
         private string searchText = "";
         private Vector2 leftScroll;
         private Vector2 rightScroll;
         private ThingDef evalStuff; // null = evaluate stuff-powered stats by the material multiplier
-        private readonly Dictionary<AttributeRule, string> thresholdBuffers = new Dictionary<AttributeRule, string>();
+        private readonly Dictionary<AttributeRule, string> valueBuffers = new Dictionary<AttributeRule, string>();
 
         public override Vector2 InitialSize => new Vector2(940f, 590f);
 
@@ -43,20 +43,20 @@ namespace ApparelAttributeFilter
             Ruleset stored = GameComponent_ApparelAttributeFilter.Instance?.GetRuleset(policy);
             working = stored != null ? stored.Clone() : new Ruleset();
 
-            // Merge categories that share a display name (vanilla has several "Basics").
-            categories = AttributeCache.NumericAttributes
-                .GroupBy(CategoryLabelOf)
-                .Select(g => new AttributeCategory
+            groups = AttributeCache.Options
+                .GroupBy(GroupKey)
+                .Select(g => new OptionGroup
                 {
-                    label = g.Key,
-                    order = g.Min(s => s.category?.displayOrder ?? int.MaxValue),
-                    stats = g.OrderBy(s => (s.label ?? s.defName)).ToList()
+                    isFacet = g.Key == null,
+                    label = GroupLabel(g.Key),
+                    order = g.Key == null ? int.MaxValue : g.Min(o => o.category?.displayOrder ?? int.MaxValue),
+                    options = g.OrderBy(o => o.order).ThenBy(OptionLabel).ToList()
                 })
-                .OrderBy(c => c.order).ThenBy(c => c.label)
+                .OrderBy(gr => gr.order).ThenBy(gr => gr.label)
                 .ToList();
 
-            foreach (AttributeCategory cat in categories.Skip(1))
-                collapsedCategories.Add(cat.label);
+            foreach (OptionGroup g in groups.Skip(1))
+                collapsedGroups.Add(g.label);
 
             doCloseX = true;
             draggable = true;
@@ -106,17 +106,15 @@ namespace ApparelAttributeFilter
             }
 
             var listRect = new Rect(inner.x, searchRect.yMax + 6f, inner.width, inner.yMax - searchRect.yMax - 6f);
-
             bool searching = !searchText.NullOrEmpty();
-            bool coversVisible = Matches("AAF.Covers".Translate());
-            bool materialVisible = AttributeCache.MaterialAttributes.Count > 0 && Matches("AAF.Material".Translate());
-            float viewHeight = (coversVisible ? RowHeight : 0f) + (materialVisible ? RowHeight : 0f);
-            foreach (AttributeCategory cat in categories)
+
+            float viewHeight = 0f;
+            foreach (OptionGroup g in groups)
             {
-                int visible = cat.stats.Count(CoreMatches);
+                int visible = g.options.Count(OptionMatches);
                 if (visible == 0) continue;
                 viewHeight += HeaderHeight;
-                if (searching || !collapsedCategories.Contains(cat.label))
+                if (searching || !collapsedGroups.Contains(g.label))
                     viewHeight += visible * RowHeight;
             }
 
@@ -124,26 +122,12 @@ namespace ApparelAttributeFilter
             Widgets.BeginScrollView(listRect, ref leftScroll, viewRect);
             float y = 0f;
 
-            if (coversVisible)
+            foreach (OptionGroup g in groups)
             {
-                if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, RowHeight), "AAF.Covers".Translate()))
-                    AddCoversRule();
-                y += RowHeight;
-            }
+                List<AttributeOption> visible = g.options.Where(OptionMatches).ToList();
+                if (visible.Count == 0) continue;
 
-            if (materialVisible)
-            {
-                if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, RowHeight), "AAF.Material".Translate()))
-                    AddMaterialRule();
-                y += RowHeight;
-            }
-
-            foreach (AttributeCategory cat in categories)
-            {
-                List<StatDef> visibleStats = cat.stats.Where(CoreMatches).ToList();
-                if (visibleStats.Count == 0) continue;
-
-                bool expanded = searching || !collapsedCategories.Contains(cat.label);
+                bool expanded = searching || !collapsedGroups.Contains(g.label);
 
                 var headerRect = new Rect(0f, y, viewRect.width, HeaderHeight);
                 if (Mouse.IsOver(headerRect)) Widgets.DrawHighlight(headerRect);
@@ -151,25 +135,22 @@ namespace ApparelAttributeFilter
                 GUI.DrawTexture(iconRect, expanded ? TexButton.Minus : TexButton.Plus);
                 Color prevHeader = GUI.color;
                 GUI.color = new Color(0.8f, 0.8f, 0.8f);
-                Widgets.Label(new Rect(headerRect.x + 22f, headerRect.y, headerRect.width - 22f, headerRect.height),
-                    cat.label);
+                Widgets.Label(new Rect(headerRect.x + 22f, headerRect.y, headerRect.width - 22f, headerRect.height), g.label);
                 GUI.color = prevHeader;
                 if (Widgets.ButtonInvisible(headerRect) && !searching)
                 {
-                    if (!collapsedCategories.Remove(cat.label)) collapsedCategories.Add(cat.label);
+                    if (!collapsedGroups.Remove(g.label)) collapsedGroups.Add(g.label);
                 }
                 y += HeaderHeight;
 
                 if (!expanded) continue;
 
-                foreach (StatDef stat in visibleStats)
+                foreach (AttributeOption opt in visible)
                 {
-                    var statRect = new Rect(0f, y, viewRect.width, RowHeight);
-                    if (Mouse.IsOver(statRect)) Widgets.DrawHighlight(statRect);
-                    if (!stat.description.NullOrEmpty()) TooltipHandler.TipRegion(statRect, stat.description);
-                    Widgets.Label(new Rect(statRect.x + 14f, statRect.y, statRect.width - 14f, statRect.height),
-                        stat.LabelCap);
-                    if (Widgets.ButtonInvisible(statRect)) AddNumericRule(stat);
+                    var optRect = new Rect(0f, y, viewRect.width, RowHeight);
+                    if (Mouse.IsOver(optRect)) Widgets.DrawHighlight(optRect);
+                    Widgets.Label(new Rect(optRect.x + 14f, optRect.y, optRect.width - 14f, optRect.height), OptionLabel(opt));
+                    if (Widgets.ButtonInvisible(optRect)) AddRule(opt);
                     y += RowHeight;
                 }
             }
@@ -177,25 +158,48 @@ namespace ApparelAttributeFilter
             Widgets.EndScrollView();
         }
 
-        private bool CoreMatches(StatDef stat) => Matches(stat.LabelCap);
+        private bool OptionMatches(AttributeOption opt) => Matches(OptionLabel(opt));
 
         private bool Matches(string label)
             => searchText.NullOrEmpty()
                || (label != null && label.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
 
-        private static string CategoryLabelOf(StatDef stat)
-            => stat.category != null && !stat.category.label.NullOrEmpty()
-                ? stat.category.LabelCap.ToString()
-                : "AAF.OtherCategory".Translate().ToString();
+        private static string GroupKey(AttributeOption o)
+        {
+            if (o.kind == RuleAttributeKind.Quality || o.kind == RuleAttributeKind.HitPoints
+                || o.kind == RuleAttributeKind.Material)
+                return null; // facets group
+            return o.category == null || o.category.label.NullOrEmpty()
+                ? "__other__" : o.category.LabelCap.ToString();
+        }
 
-        private class AttributeCategory
+        private static string GroupLabel(string key)
+        {
+            if (key == null) return "AAF.FacetsGroup".Translate();
+            if (key == "__other__") return "AAF.OtherCategory".Translate();
+            return key;
+        }
+
+        private static string OptionLabel(AttributeOption o)
+        {
+            switch (o.kind)
+            {
+                case RuleAttributeKind.Quality: return "AAF.Facet.Quality".Translate();
+                case RuleAttributeKind.HitPoints: return "AAF.Facet.HitPoints".Translate();
+                case RuleAttributeKind.Material: return "AAF.Facet.Material".Translate();
+                default: return o.label;
+            }
+        }
+
+        private class OptionGroup
         {
             public string label;
             public int order;
-            public List<StatDef> stats;
+            public bool isFacet;
+            public List<AttributeOption> options;
         }
 
-        // ---- Right: copy/paste toolbar ----
+        // ---- Right: copy/paste + material lens ----
 
         private void DrawRightToolbar(Rect rect)
         {
@@ -213,7 +217,7 @@ namespace ApparelAttributeFilter
             if (Widgets.ButtonText(pasteRect, "AAF.Paste".Translate(), active: canPaste) && canPaste)
             {
                 working = clipboard.Clone();
-                thresholdBuffers.Clear();
+                valueBuffers.Clear();
             }
 
             const float ddWidth = 150f;
@@ -221,7 +225,7 @@ namespace ApparelAttributeFilter
             string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "AAF.Multiplier".Translate().ToString();
             TooltipHandler.TipRegionByKey(ddRect, "AAF.EvalAsTip");
             if (Widgets.ButtonText(ddRect, ddLabel))
-                OpenMaterialMenu();
+                OpenMaterialLensMenu();
 
             var ddLabelRect = new Rect(pasteRect.xMax + gap, rect.y, ddRect.x - pasteRect.xMax - gap * 2f, rect.height);
             Color prev = GUI.color;
@@ -285,7 +289,7 @@ namespace ApparelAttributeFilter
             if (toDelete != null)
             {
                 working.rules.Remove(toDelete);
-                thresholdBuffers.Remove(toDelete);
+                valueBuffers.Remove(toDelete);
             }
         }
 
@@ -329,68 +333,113 @@ namespace ApparelAttributeFilter
                 return r;
             }
 
-            if (Widgets.ButtonText(Slice(74f), ("AAF.Polarity." + rule.polarity).Translate()))
-                rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
+            bool isRange = rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints;
 
-            // Material rules are always Global, so lock the scope control.
-            if (rule.kind == RuleAttributeKind.Material)
+            if (isRange)
+            {
+                if (Widgets.ButtonText(Slice(74f), ("AAF.Bound." + rule.rangeBound).Translate()))
+                    rule.rangeBound = rule.rangeBound == RangeBound.AtLeast ? RangeBound.AtMost : RangeBound.AtLeast;
+            }
+            else if (Widgets.ButtonText(Slice(74f), ("AAF.Polarity." + rule.polarity).Translate()))
+            {
+                rule.polarity = rule.polarity == RulePolarity.Forbid ? RulePolarity.Require : RulePolarity.Forbid;
+            }
+
+            if (rule.IsPerDef)
+            {
+                if (Widgets.ButtonText(Slice(92f), ScopeLabel(rule)))
+                    OpenScopeMenu(rule);
+            }
+            else
             {
                 var scopeRect = Slice(92f);
-                TooltipHandler.TipRegionByKey(scopeRect, "AAF.MaterialScopeTip");
-                Color sp = GUI.color;
-                GUI.color = new Color(1f, 1f, 1f, 0.5f);
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(scopeRect, "AAF.Global".Translate());
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = sp;
-            }
-            else if (Widgets.ButtonText(Slice(92f), ScopeLabel(rule)))
-            {
-                OpenScopeMenu(rule);
+                TooltipHandler.TipRegionByKey(scopeRect, "AAF.FacetScopeTip");
+                DrawFaded(scopeRect, "AAF.Global".Translate(), TextAnchor.MiddleCenter);
             }
 
             var deleteRect = new Rect(row.xMax - 24f, row.y, 24f, row.height);
             bool delete = Widgets.ButtonImage(deleteRect, TexButton.Delete);
 
-            if (rule.kind == RuleAttributeKind.Covers)
+            switch (rule.kind)
             {
-                Widgets.Label(Slice(58f), "AAF.CoversLabel".Translate());
-                float groupWidth = deleteRect.x - gap - x;
-                if (Widgets.ButtonText(new Rect(x, row.y, Mathf.Max(groupWidth, 60f), row.height),
-                        rule.coversGroup?.LabelCap ?? "AAF.Pick".Translate()))
-                    OpenCoversMenu(rule);
-            }
-            else if (rule.kind == RuleAttributeKind.Material)
-            {
-                Widgets.Label(Slice(58f), "AAF.MaterialLabel".Translate());
-                float pickWidth = deleteRect.x - gap - x;
-                if (Widgets.ButtonText(new Rect(x, row.y, Mathf.Max(pickWidth, 60f), row.height),
-                        rule.materialStuff?.LabelCap ?? "AAF.Pick".Translate()))
-                    OpenMaterialAttributeMenu(rule);
-            }
-            else
-            {
-                float fixedRight = 104f + gap + 48f; // mode + gap + value
-                float labelWidth = deleteRect.x - gap - fixedRight - gap - x;
-                var labelRect = Slice(Mathf.Max(labelWidth, 60f));
-                Widgets.Label(labelRect, rule.stat?.LabelCap ?? "?");
-                if (rule.stat != null && !rule.stat.description.NullOrEmpty())
-                    TooltipHandler.TipRegion(labelRect, rule.stat.description);
-
-                if (Widgets.ButtonText(Slice(104f), ("AAF.Mode." + rule.numericMode).Translate()))
-                    OpenModeMenu(rule);
-
-                var valueRect = Slice(48f);
-                if (rule.NeedsThreshold)
-                {
-                    if (!thresholdBuffers.TryGetValue(rule, out string buffer))
-                        buffer = rule.threshold.ToString("0.###");
-                    Widgets.TextFieldNumeric(valueRect, ref rule.threshold, ref buffer, -1e9f, 1e9f);
-                    thresholdBuffers[rule] = buffer;
-                }
+                case RuleAttributeKind.Numeric:
+                    DrawNumericContent(row, rule, deleteRect, x, gap, Slice);
+                    break;
+                case RuleAttributeKind.Categorical:
+                    DrawSingleValueRow(row, deleteRect, x, gap, OptionFor(rule)?.label ?? rule.attrKey,
+                        CategoricalValueLabel(rule), () => OpenCategoricalMenu(rule));
+                    break;
+                case RuleAttributeKind.Material:
+                    DrawSingleValueRow(row, deleteRect, x, gap, "AAF.Facet.Material".Translate(),
+                        rule.materialStuff?.LabelCap ?? "AAF.Pick".Translate(), () => OpenMaterialMenu(rule));
+                    break;
+                case RuleAttributeKind.Quality:
+                    DrawSingleValueRow(row, deleteRect, x, gap, "AAF.Facet.Quality".Translate(),
+                        rule.qualityValue.GetLabel().CapitalizeFirst(), () => OpenQualityMenu(rule));
+                    break;
+                case RuleAttributeKind.HitPoints:
+                    DrawHitPointsContent(row, rule, deleteRect, x);
+                    break;
             }
 
             return delete;
+        }
+
+        private void DrawNumericContent(Rect row, AttributeRule rule, Rect deleteRect, float x, float gap, Func<float, Rect> Slice)
+        {
+            float fixedRight = 104f + gap + 48f;
+            float labelWidth = deleteRect.x - gap - fixedRight - gap - x;
+            var labelRect = Slice(Mathf.Max(labelWidth, 60f));
+            Widgets.Label(labelRect, rule.stat?.LabelCap ?? "?");
+            if (rule.stat != null && !rule.stat.description.NullOrEmpty())
+                TooltipHandler.TipRegion(labelRect, rule.stat.description);
+
+            if (Widgets.ButtonText(Slice(104f), ("AAF.Mode." + rule.numericMode).Translate()))
+                OpenModeMenu(rule);
+
+            var valueRect = Slice(48f);
+            if (rule.NeedsThreshold)
+            {
+                if (!valueBuffers.TryGetValue(rule, out string buffer)) buffer = rule.threshold.ToString("0.###");
+                Widgets.TextFieldNumeric(valueRect, ref rule.threshold, ref buffer, -1e9f, 1e9f);
+                valueBuffers[rule] = buffer;
+            }
+        }
+
+        private void DrawHitPointsContent(Rect row, AttributeRule rule, Rect deleteRect, float x)
+        {
+            const float fieldW = 46f, pctW = 14f, gap = 4f;
+            var labelRect = new Rect(x, row.y, deleteRect.x - gap - x - fieldW - pctW - gap, row.height);
+            Widgets.Label(labelRect, "AAF.Facet.HitPoints".Translate());
+
+            var fieldRect = new Rect(deleteRect.x - gap - pctW - fieldW, row.y, fieldW, row.height);
+            float pct = Mathf.Round(rule.threshold * 100f);
+            if (!valueBuffers.TryGetValue(rule, out string buffer)) buffer = pct.ToString("0");
+            Widgets.TextFieldNumeric(fieldRect, ref pct, ref buffer, 0f, 100f);
+            rule.threshold = pct / 100f;
+            valueBuffers[rule] = buffer;
+            Widgets.Label(new Rect(fieldRect.xMax, row.y, pctW, row.height), "%");
+        }
+
+        // label on the left, a single picker button filling the space before delete
+        private void DrawSingleValueRow(Rect row, Rect deleteRect, float x, float gap, string label, string valueLabel, Action onClick)
+        {
+            const float ctrlW = 150f;
+            var ctrlRect = new Rect(deleteRect.x - gap - ctrlW, row.y, ctrlW, row.height);
+            var labelRect = new Rect(x, row.y, Mathf.Max(ctrlRect.x - gap - x, 40f), row.height);
+            Widgets.Label(labelRect, label);
+            if (Widgets.ButtonText(ctrlRect, valueLabel))
+                onClick();
+        }
+
+        private static void DrawFaded(Rect rect, string text, TextAnchor anchor)
+        {
+            Color prev = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.5f);
+            Text.Anchor = anchor;
+            Widgets.Label(rect, text);
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = prev;
         }
 
         // ---- Bottom buttons ----
@@ -428,30 +477,30 @@ namespace ApparelAttributeFilter
 
         // ---- Rule construction / menus ----
 
-        private void AddNumericRule(StatDef stat)
+        private void AddRule(AttributeOption opt)
         {
-            working.rules.Add(new AttributeRule { kind = RuleAttributeKind.Numeric, stat = stat });
-            collapsedScopes.Remove(null); // new rules land in Global; reveal it
-        }
-
-        private void AddCoversRule()
-        {
-            working.rules.Add(new AttributeRule
+            var rule = new AttributeRule { kind = opt.kind };
+            switch (opt.kind)
             {
-                kind = RuleAttributeKind.Covers,
-                coversGroup = AttributeCache.Covers.FirstOrDefault()
-            });
+                case RuleAttributeKind.Numeric: rule.stat = opt.stat; break;
+                case RuleAttributeKind.Categorical:
+                    rule.attrKey = opt.key;
+                    rule.categoricalValue = opt.values.FirstOrDefault()?.token;
+                    break;
+                case RuleAttributeKind.HitPoints: rule.threshold = 0.5f; break;
+                case RuleAttributeKind.Material: rule.materialStuff = AttributeCache.MaterialAttributes.FirstOrDefault(); break;
+            }
+            working.rules.Add(rule);
             collapsedScopes.Remove(null);
         }
 
-        private void AddMaterialRule()
+        private static AttributeOption OptionFor(AttributeRule rule) => AttributeCache.OptionFor(rule.attrKey);
+
+        private static string CategoricalValueLabel(AttributeRule rule)
         {
-            working.rules.Add(new AttributeRule
-            {
-                kind = RuleAttributeKind.Material,
-                materialStuff = AttributeCache.MaterialAttributes.FirstOrDefault()
-            });
-            collapsedScopes.Remove(null); // material rules are always Global
+            AttributeOption opt = OptionFor(rule);
+            CategoricalValue v = opt?.values.FirstOrDefault(cv => cv.token == rule.categoricalValue);
+            return v?.label ?? rule.categoricalValue ?? "AAF.Pick".Translate();
         }
 
         private string ScopeLabel(AttributeRule rule)
@@ -478,24 +527,36 @@ namespace ApparelAttributeFilter
             foreach (NumericMode mode in Enum.GetValues(typeof(NumericMode)))
             {
                 NumericMode captured = mode;
-                options.Add(new FloatMenuOption(("AAF.Mode." + mode).Translate(),
-                    () => rule.numericMode = captured));
+                options.Add(new FloatMenuOption(("AAF.Mode." + mode).Translate(), () => rule.numericMode = captured));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private void OpenCoversMenu(AttributeRule rule)
+        private void OpenCategoricalMenu(AttributeRule rule)
+        {
+            AttributeOption opt = OptionFor(rule);
+            if (opt?.values == null) return;
+            var options = new List<FloatMenuOption>();
+            foreach (CategoricalValue cv in opt.values)
+            {
+                CategoricalValue captured = cv;
+                options.Add(new FloatMenuOption(captured.label, () => rule.categoricalValue = captured.token));
+            }
+            Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void OpenQualityMenu(AttributeRule rule)
         {
             var options = new List<FloatMenuOption>();
-            foreach (BodyPartGroupDef group in AttributeCache.Covers)
+            foreach (QualityCategory q in Enum.GetValues(typeof(QualityCategory)))
             {
-                BodyPartGroupDef captured = group;
-                options.Add(new FloatMenuOption(group.LabelCap, () => rule.coversGroup = captured));
+                QualityCategory captured = q;
+                options.Add(new FloatMenuOption(q.GetLabel().CapitalizeFirst(), () => rule.qualityValue = captured));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private void OpenMaterialAttributeMenu(AttributeRule rule)
+        private void OpenMaterialMenu(AttributeRule rule)
         {
             var options = new List<FloatMenuOption>();
             foreach (ThingDef material in AttributeCache.MaterialAttributes)
@@ -506,7 +567,7 @@ namespace ApparelAttributeFilter
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private void OpenMaterialMenu()
+        private void OpenMaterialLensMenu()
         {
             var options = new List<FloatMenuOption>
             {

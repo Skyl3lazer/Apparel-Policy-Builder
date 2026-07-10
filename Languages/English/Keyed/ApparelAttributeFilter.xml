@@ -8,19 +8,25 @@
   <!-- Window -->
   <AAF.Title>Apparel Attribute Filter</AAF.Title>
   <AAF.SearchHint>Search attributes...</AAF.SearchHint>
-  <AAF.Covers>Covers</AAF.Covers>
-  <AAF.CoversLabel>Covers:</AAF.CoversLabel>
-  <AAF.Material>Material</AAF.Material>
-  <AAF.MaterialLabel>Material:</AAF.MaterialLabel>
-  <AAF.MaterialScopeTip>Material rules always apply to the whole policy, they can't be limited to a single layer.</AAF.MaterialScopeTip>
   <AAF.OtherCategory>Other</AAF.OtherCategory>
+  <AAF.FacetsGroup>Filters</AAF.FacetsGroup>
   <AAF.Global>Global</AAF.Global>
   <AAF.NoRules>No rules yet.\nPick an attribute on the left to add one.</AAF.NoRules>
   <AAF.Pick>Pick...</AAF.Pick>
+  <AAF.FacetScopeTip>Applies to the whole policy; it can't be limited to a single layer.</AAF.FacetScopeTip>
+
+  <!-- Filter facets -->
+  <AAF.Facet.Quality>Quality</AAF.Facet.Quality>
+  <AAF.Facet.HitPoints>Hit Points</AAF.Facet.HitPoints>
+  <AAF.Facet.Material>Material</AAF.Facet.Material>
 
   <!-- Polarity -->
   <AAF.Polarity.Forbid>Forbid</AAF.Polarity.Forbid>
   <AAF.Polarity.Require>Require</AAF.Polarity.Require>
+
+  <!-- Range bounds (Quality / Hit Points) -->
+  <AAF.Bound.AtLeast>at least</AAF.Bound.AtLeast>
+  <AAF.Bound.AtMost>at most</AAF.Bound.AtMost>
 
   <!-- Numeric modes -->
   <AAF.Mode.Positive>positive</AAF.Mode.Positive>
@@ -35,7 +41,6 @@
   <AAF.CopyTip>Copy this ruleset to the clipboard so it can be pasted into another apparel policy.</AAF.CopyTip>
   <AAF.Paste>Paste</AAF.Paste>
   <AAF.PasteTip>Replace this policy's ruleset with the copied one. Applies only after you press Apply or Save.</AAF.PasteTip>
-  <AAF.Clipboard>{0} rule(s) copied</AAF.Clipboard>
 
   <!-- Stuffable evaluation lens -->
   <AAF.EvalAs>Evaluate stuffables as:</AAF.EvalAs>

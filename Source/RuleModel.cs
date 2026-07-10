@@ -7,22 +7,34 @@ namespace ApparelAttributeFilter
 {
     public enum RulePolarity : byte { Forbid, Require }
 
-    public enum RuleAttributeKind : byte { Numeric, Covers, Material }
+    public enum RuleAttributeKind : byte { Numeric, Categorical, Quality, HitPoints, Material }
 
     public enum NumericMode : byte { Positive, Negative, None, GreaterThan, LessThan, EqualTo }
+
+    public enum RangeBound : byte { AtLeast, AtMost }
 
     public class AttributeRule : IExposable
     {
         public RulePolarity polarity = RulePolarity.Forbid;
-        public ApparelLayerDef layerScope; // null = Global
+        public ApparelLayerDef layerScope; // null = Global; per-def kinds only
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
+
         public StatDef stat;
         public NumericMode numericMode = NumericMode.Negative;
-        public float threshold;
-        public BodyPartGroupDef coversGroup;
+        public float threshold; // also the HitPoints fraction for that facet
+
+        public string attrKey;
+        public string categoricalValue;
+
+        public RangeBound rangeBound = RangeBound.AtLeast;
+        public QualityCategory qualityValue = QualityCategory.Normal;
+
         public ThingDef materialStuff;
 
         public AttributeRule() { }
+
+        // Per-def rules toggle apparel defs; facet rules write policy-wide filter settings.
+        public bool IsPerDef => kind == RuleAttributeKind.Numeric || kind == RuleAttributeKind.Categorical;
 
         public bool IsValid
         {
@@ -30,9 +42,10 @@ namespace ApparelAttributeFilter
             {
                 switch (kind)
                 {
-                    case RuleAttributeKind.Covers: return coversGroup != null;
+                    case RuleAttributeKind.Numeric: return stat != null;
+                    case RuleAttributeKind.Categorical: return !attrKey.NullOrEmpty() && categoricalValue != null;
                     case RuleAttributeKind.Material: return materialStuff != null;
-                    default: return stat != null;
+                    default: return true;
                 }
             }
         }
@@ -45,8 +58,8 @@ namespace ApparelAttributeFilter
 
         public bool ConditionMatches(ApparelAttributeInfo info, ThingDef evalStuff)
         {
-            if (kind == RuleAttributeKind.Covers)
-                return coversGroup != null && info.Covers.Contains(coversGroup);
+            if (kind == RuleAttributeKind.Categorical)
+                return info.HasCategorical(attrKey, categoricalValue);
 
             if (stat == null) return false;
             float v = info.GetStatValue(stat, evalStuff);
@@ -82,7 +95,10 @@ namespace ApparelAttributeFilter
             Scribe_Defs.Look(ref stat, "stat");
             Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
             Scribe_Values.Look(ref threshold, "threshold", 0f);
-            Scribe_Defs.Look(ref coversGroup, "coversGroup");
+            Scribe_Values.Look(ref attrKey, "attrKey");
+            Scribe_Values.Look(ref categoricalValue, "categoricalValue");
+            Scribe_Values.Look(ref rangeBound, "rangeBound", RangeBound.AtLeast);
+            Scribe_Values.Look(ref qualityValue, "qualityValue", QualityCategory.Normal);
             Scribe_Defs.Look(ref materialStuff, "materialStuff");
         }
     }
@@ -96,7 +112,7 @@ namespace ApparelAttributeFilter
         public Ruleset Clone()
         {
             var copy = new Ruleset();
-            foreach (var r in rules) copy.rules.Add(r.Clone());
+            foreach (AttributeRule r in rules) copy.rules.Add(r.Clone());
             return copy;
         }
 
@@ -111,13 +127,14 @@ namespace ApparelAttributeFilter
                 for (int i = 0; i < rules.Count; i++)
                 {
                     AttributeRule rule = rules[i];
-                    if (rule.kind == RuleAttributeKind.Material) continue; // handled in ApplyMaterialPass
+                    if (!rule.IsPerDef) continue;
                     if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
                 filter.SetAllow(info.def, allow);
             }
 
             ApplyMaterialPass(filter);
+            ApplyRangePasses(filter);
         }
 
         // Only toggles Material Filter's special filters, never apparel defs.
@@ -127,13 +144,15 @@ namespace ApparelAttributeFilter
 
             var forbidden = new HashSet<ThingDef>();
             var required = new HashSet<ThingDef>();
-            bool hasRequire = false;
+            bool any = false, hasRequire = false;
             foreach (AttributeRule rule in rules)
             {
                 if (rule.kind != RuleAttributeKind.Material || !rule.IsValid) continue;
+                any = true;
                 if (rule.polarity == RulePolarity.Require) { required.Add(rule.materialStuff); hasRequire = true; }
                 else forbidden.Add(rule.materialStuff);
             }
+            if (!any) return;
 
             foreach (ThingDef material in AttributeCache.MaterialAttributes)
             {
@@ -142,6 +161,39 @@ namespace ApparelAttributeFilter
                 bool allow = !forbidden.Contains(material) && (!hasRequire || required.Contains(material));
                 filter.SetAllow(sf, allow);
             }
+        }
+
+        // Quality/HitPoints rules drive the vanilla range sliders; a facet is only managed when used.
+        private void ApplyRangePasses(ThingFilter filter)
+        {
+            bool anyQuality = false;
+            var qMin = QualityCategory.Awful;
+            var qMax = QualityCategory.Legendary;
+            bool anyHp = false;
+            float hpMin = 0f, hpMax = 1f;
+
+            foreach (AttributeRule rule in rules)
+            {
+                if (rule.kind == RuleAttributeKind.Quality)
+                {
+                    anyQuality = true;
+                    if (rule.rangeBound == RangeBound.AtLeast)
+                    {
+                        if (rule.qualityValue > qMin) qMin = rule.qualityValue;
+                    }
+                    else if (rule.qualityValue < qMax) qMax = rule.qualityValue;
+                }
+                else if (rule.kind == RuleAttributeKind.HitPoints)
+                {
+                    anyHp = true;
+                    float f = Mathf.Clamp01(rule.threshold);
+                    if (rule.rangeBound == RangeBound.AtLeast) hpMin = Mathf.Max(hpMin, f);
+                    else hpMax = Mathf.Min(hpMax, f);
+                }
+            }
+
+            if (anyQuality) filter.AllowedQualityLevels = new QualityRange(qMin, qMax);
+            if (anyHp) filter.AllowedHitPointsPercents = new FloatRange(hpMin, hpMax);
         }
 
         public void ExposeData()

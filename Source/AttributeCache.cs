@@ -10,16 +10,16 @@ namespace ApparelAttributeFilter
     {
         public readonly ThingDef def;
         public readonly HashSet<ApparelLayerDef> Layers;
-        public readonly HashSet<BodyPartGroupDef> Covers;
         private readonly Dictionary<StatDef, float> statValues;
+        private readonly Dictionary<string, HashSet<string>> categoricalTokens;
 
         public ApparelAttributeInfo(ThingDef def, HashSet<ApparelLayerDef> layers,
-            HashSet<BodyPartGroupDef> covers, Dictionary<StatDef, float> statValues)
+            Dictionary<StatDef, float> statValues, Dictionary<string, HashSet<string>> categoricalTokens)
         {
             this.def = def;
             this.Layers = layers;
-            this.Covers = covers;
             this.statValues = statValues;
+            this.categoricalTokens = categoricalTokens;
         }
 
         public float GetStatValue(StatDef stat)
@@ -33,24 +33,49 @@ namespace ApparelAttributeFilter
                 return def.GetStatValueAbstract(stat, material);
             return GetStatValue(stat);
         }
+
+        public bool HasCategorical(string attrKey, string token)
+            => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) && set.Contains(token);
+    }
+
+    public class CategoricalValue
+    {
+        public string token;
+        public string label;
+    }
+
+    public class AttributeOption
+    {
+        public string key;
+        public string label;
+        public StatCategoryDef category; // null for facets
+        public int order;
+        public RuleAttributeKind kind;
+        public StatDef stat;                 // Numeric
+        public List<CategoricalValue> values; // Categorical
     }
 
     public static class AttributeCache
     {
         public static List<ApparelAttributeInfo> Apparel { get; private set; }
-        public static List<StatDef> NumericAttributes { get; private set; }
+        public static List<AttributeOption> Options { get; private set; }
         public static List<ApparelLayerDef> Layers { get; private set; }
-        public static List<BodyPartGroupDef> Covers { get; private set; }
         public static List<ThingDef> StuffMaterials { get; private set; }
-        public static bool MaterialFilterActive { get; private set; }
         public static List<ThingDef> MaterialAttributes { get; private set; }
+        public static bool MaterialFilterActive { get; private set; }
+        public static bool QualityFacetActive { get; private set; }
+        public static bool HitPointsFacetActive { get; private set; }
 
         // Stuff-powered stats (armor/insulation) mapped to their StuffEffectMultiplier stat.
         private static Dictionary<StatDef, StatDef> stuffPoweredMultipliers;
         private static Dictionary<ThingDef, SpecialThingFilterDef> materialFilters;
+        private static Dictionary<string, AttributeOption> optionsByKey;
 
         public static bool IsStuffPowered(StatDef stat)
             => stuffPoweredMultipliers != null && stuffPoweredMultipliers.ContainsKey(stat);
+
+        public static AttributeOption OptionFor(string key)
+            => key != null && optionsByKey != null && optionsByKey.TryGetValue(key, out AttributeOption o) ? o : null;
 
         public static SpecialThingFilterDef MaterialFilterFor(ThingDef stuff)
             => materialFilters != null && materialFilters.TryGetValue(stuff, out SpecialThingFilterDef sf) ? sf : null;
@@ -65,7 +90,9 @@ namespace ApparelAttributeFilter
             var apparel = new List<ApparelAttributeInfo>();
             var numericSet = new HashSet<StatDef>();
             var layerSet = new HashSet<ApparelLayerDef>();
-            var coverSet = new HashSet<BodyPartGroupDef>();
+            var catOptions = new Dictionary<string, AttributeOption>();
+            var catValueLabels = new Dictionary<string, Dictionary<string, string>>();
+            bool qualityActive = false, hpActive = false;
 
             stuffPoweredMultipliers = new Dictionary<StatDef, StatDef>();
             foreach (StatDef s in DefDatabase<StatDef>.AllDefsListForReading)
@@ -74,23 +101,26 @@ namespace ApparelAttributeFilter
                 if (part?.multiplierStat != null) stuffPoweredMultipliers[s] = part.multiplierStat;
             }
 
-            foreach (ThingDef def in DefDatabase<ThingDef>.AllDefsListForReading)
+            // Exactly the defs the apparel policy screen shows: its parent filter allows the
+            // Apparel category. Scanning by def.IsApparel is broader and leaks non-apparel gear.
+            var apparelFilter = new ThingFilter();
+            apparelFilter.SetAllow(ThingCategoryDefOf.Apparel, true);
+            foreach (ThingDef def in apparelFilter.AllowedThingDefs)
             {
-                if (!def.IsApparel) continue;
+                if (def.apparel == null) continue;
                 try
                 {
                     var layers = def.apparel.layers != null
                         ? new HashSet<ApparelLayerDef>(def.apparel.layers)
                         : new HashSet<ApparelLayerDef>();
-                    var covers = def.apparel.bodyPartGroups != null
-                        ? new HashSet<BodyPartGroupDef>(def.apparel.bodyPartGroups)
-                        : new HashSet<BodyPartGroupDef>();
                     Dictionary<StatDef, float> statValues = ComputeStatValues(def);
+                    var catTokens = DiscoverCategorical(def, catOptions, catValueLabels);
 
-                    apparel.Add(new ApparelAttributeInfo(def, layers, covers, statValues));
+                    apparel.Add(new ApparelAttributeInfo(def, layers, statValues, catTokens));
                     layerSet.UnionWith(layers);
-                    coverSet.UnionWith(covers);
                     numericSet.UnionWith(statValues.Keys);
+                    if (!qualityActive && def.FollowQualityThingFilter()) qualityActive = true;
+                    if (!hpActive && def.useHitPoints) hpActive = true;
                 }
                 catch (Exception e)
                 {
@@ -99,23 +129,124 @@ namespace ApparelAttributeFilter
             }
 
             Apparel = apparel;
-            NumericAttributes = numericSet
-                .OrderBy(s => s.category?.displayOrder ?? int.MaxValue)
-                .ThenBy(s => s.label ?? s.defName)
-                .ToList();
             Layers = layerSet.OrderBy(l => l.drawOrder).ToList();
-            Covers = coverSet.OrderBy(b => b.listOrder).ToList();
+            QualityFacetActive = qualityActive;
+            HitPointsFacetActive = hpActive;
 
             var stuffSet = new HashSet<ThingDef>();
             foreach (ApparelAttributeInfo info in apparel)
                 if (info.def.MadeFromStuff)
                     stuffSet.UnionWith(GenStuff.AllowedStuffsFor(info.def));
             StuffMaterials = stuffSet.OrderBy(s => s.label ?? s.defName).ToList();
-
             BuildMaterialFilterMap(stuffSet);
+
+            foreach (KeyValuePair<string, AttributeOption> kv in catOptions)
+                kv.Value.values = catValueLabels[kv.Key]
+                    .Select(p => new CategoricalValue { token = p.Key, label = p.Value })
+                    .OrderBy(v => v.label).ToList();
+
+            Options = BuildOptions(numericSet, catOptions.Values);
+            optionsByKey = new Dictionary<string, AttributeOption>();
+            foreach (AttributeOption o in Options) optionsByKey[o.key] = o;
         }
 
-        // Detected by the presence of its generated special filters rather than by packageId.
+        private static List<AttributeOption> BuildOptions(HashSet<StatDef> numericSet, IEnumerable<AttributeOption> categorical)
+        {
+            var options = new List<AttributeOption>();
+            foreach (StatDef s in numericSet)
+                options.Add(new AttributeOption
+                {
+                    key = "stat:" + s.defName,
+                    label = s.LabelCap,
+                    category = s.category,
+                    order = s.displayPriorityInCategory,
+                    kind = RuleAttributeKind.Numeric,
+                    stat = s
+                });
+            options.AddRange(categorical);
+            if (QualityFacetActive)
+                options.Add(new AttributeOption { key = "facet:quality", order = 0, kind = RuleAttributeKind.Quality });
+            if (HitPointsFacetActive)
+                options.Add(new AttributeOption { key = "facet:hitpoints", order = 1, kind = RuleAttributeKind.HitPoints });
+            if (MaterialFilterActive && MaterialAttributes.Count > 0)
+                options.Add(new AttributeOption { key = "facet:material", order = 2, kind = RuleAttributeKind.Material });
+            return options;
+        }
+
+        // Reads an apparel's info-card categorical entries, registering each as an option and
+        // returning this apparel's value tokens per attribute key.
+        private static Dictionary<string, HashSet<string>> DiscoverCategorical(ThingDef def,
+            Dictionary<string, AttributeOption> catOptions, Dictionary<string, Dictionary<string, string>> catValueLabels)
+        {
+            var tokens = new Dictionary<string, HashSet<string>>();
+            ThingDef stuff = def.MadeFromStuff ? GenStuff.DefaultStuffFor(def) : null;
+            StatRequest req = StatRequest.For(def, stuff);
+
+            IEnumerable<StatDrawEntry> entries;
+            try { entries = def.SpecialDisplayStats(req); }
+            catch { return tokens; }
+            if (entries == null) return tokens;
+
+            foreach (StatDrawEntry entry in entries)
+            {
+                if (entry == null || entry.stat != null || entry.category == null) continue;
+                string label = entry.LabelCap;
+                if (label.NullOrEmpty()) continue;
+                List<CategoricalValue> values = ExtractCategoricalValues(entry, req);
+                if (values.Count == 0) continue;
+
+                string key = "cat:" + entry.category.defName + ":" + label;
+                if (!catOptions.TryGetValue(key, out AttributeOption opt))
+                {
+                    opt = new AttributeOption
+                    {
+                        key = key,
+                        label = label,
+                        category = entry.category,
+                        order = entry.DisplayPriorityWithinCategory,
+                        kind = RuleAttributeKind.Categorical
+                    };
+                    catOptions[key] = opt;
+                    catValueLabels[key] = new Dictionary<string, string>();
+                }
+
+                Dictionary<string, string> seen = catValueLabels[key];
+                if (!tokens.TryGetValue(key, out HashSet<string> apparelSet))
+                {
+                    apparelSet = new HashSet<string>();
+                    tokens[key] = apparelSet;
+                }
+                foreach (CategoricalValue v in values)
+                {
+                    seen[v.token] = v.label;
+                    apparelSet.Add(v.token);
+                }
+            }
+            return tokens;
+        }
+
+        private static List<CategoricalValue> ExtractCategoricalValues(StatDrawEntry entry, StatRequest req)
+        {
+            var result = new List<CategoricalValue>();
+            IEnumerable<Dialog_InfoCard.Hyperlink> links = null;
+            try { links = entry.GetHyperlinks(req); } catch { }
+            if (links != null)
+                foreach (Dialog_InfoCard.Hyperlink h in links)
+                    if (h.def != null) result.Add(new CategoricalValue { token = h.def.defName, label = h.def.LabelCap });
+
+            if (result.Count == 0)
+            {
+                string vs = entry.ValueString;
+                if (!vs.NullOrEmpty())
+                    foreach (string part in vs.Split(','))
+                    {
+                        string t = part.Trim();
+                        if (t.Length > 0) result.Add(new CategoricalValue { token = t, label = t });
+                    }
+            }
+            return result;
+        }
+
         private static void BuildMaterialFilterMap(HashSet<ThingDef> apparelStuffs)
         {
             const string prefix = "MaterialFilter_allow";
