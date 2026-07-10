@@ -46,6 +46,19 @@
   <APB.Paste>Paste</APB.Paste>
   <APB.PasteTip>Replace this policy's ruleset with the copied one. Applies only after you press Apply or Save.</APB.PasteTip>
 
+  <!-- Documents (named, cross-save library) -->
+  <APB.DocumentsTip>Save the current ruleset as a named document, or load and manage saved documents. Documents are shared across all your colonies.</APB.DocumentsTip>
+  <APB.Documents>Rule Documents</APB.Documents>
+  <APB.SaveDoc>Save</APB.SaveDoc>
+  <APB.SaveDocTip>Save the current ruleset as a document under this name.</APB.SaveDocTip>
+  <APB.NoDocuments>No saved documents yet.\nName the current ruleset above and press Save.</APB.NoDocuments>
+  <APB.OverwriteDocConfirm>A document named '{0}' already exists. Replace it?</APB.OverwriteDocConfirm>
+  <APB.DeleteDocConfirm>Delete the document '{0}'?</APB.DeleteDocConfirm>
+  <APB.DiscardConfirm>Discard the current rules and replace them with the pasted ruleset?</APB.DiscardConfirm>
+  <APB.DiscardLoadConfirm>Discard the current rules and load '{0}'?</APB.DiscardLoadConfirm>
+  <APB.SkippedRules>Skipped {0} rule(s) that reference content not in this modlist.</APB.SkippedRules>
+  <APB.SettingsNote>Rule documents are created and managed from the Policy Builder window, reachable from any Apparel Policy.</APB.SettingsNote>
+
   <!-- Stuffable evaluation lens -->
   <APB.EvalAs>Evaluate stuffables as:</APB.EvalAs>
   <APB.EvalAsTip>How to read armor and insulation for stuffable apparel. "Multiplier" uses the material-effect multiplier so any piece that can take armor/insulation counts. Pick a material to instead use the actual value that material would give (only affects apparel that can be made from it).</APB.EvalAsTip>

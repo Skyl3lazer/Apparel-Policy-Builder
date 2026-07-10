@@ -214,7 +214,12 @@ namespace ApparelPolicyBuilder
             const float bw = 96f, gap = 6f, bh = 28f;
             float y = rect.y + (rect.height - bh) / 2f;
 
-            var copyRect = new Rect(rect.x, y, bw, bh);
+            var docsRect = new Rect(rect.x, y, bh, bh);
+            TooltipHandler.TipRegionByKey(docsRect, "APB.DocumentsTip");
+            if (Widgets.ButtonImage(docsRect, TexButton.Save))
+                Find.WindowStack.Add(new Dialog_ApparelPolicyDocuments(this));
+
+            var copyRect = new Rect(docsRect.xMax + gap, y, bw, bh);
             TooltipHandler.TipRegionByKey(copyRect, "APB.CopyTip");
             if (Widgets.ButtonText(copyRect, "APB.Copy".Translate()))
                 clipboard = working.Clone();
@@ -223,10 +228,7 @@ namespace ApparelPolicyBuilder
             var pasteRect = new Rect(copyRect.xMax + gap, y, bw, bh);
             TooltipHandler.TipRegionByKey(pasteRect, "APB.PasteTip");
             if (Widgets.ButtonText(pasteRect, "APB.Paste".Translate(), active: canPaste) && canPaste)
-            {
-                working = clipboard.Clone();
-                valueBuffers.Clear();
-            }
+                ReplaceWorkingConfirmed(clipboard.Clone(), "APB.DiscardConfirm".Translate());
 
             const float ddWidth = 150f;
             var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
@@ -505,6 +507,34 @@ namespace ApparelPolicyBuilder
 
         private void Commit()
             => GameComponent_ApparelPolicyBuilder.Instance?.Store(policy, working.Clone());
+
+        public bool WorkingIsEmpty => working.rules.Count == 0;
+        public Ruleset WorkingSnapshot() => working.Clone();
+        public string PolicyLabel => policy?.label ?? "";
+
+        public void LoadFromDocument(RuleDocument doc)
+        {
+            if (doc == null) return;
+            Ruleset rs = doc.ToRuleset(out int skipped);
+            Action after = skipped > 0
+                ? () => Messages.Message("APB.SkippedRules".Translate(skipped), MessageTypeDefOf.CautionInput, false)
+                : (Action)null;
+            ReplaceWorkingConfirmed(rs, "APB.DiscardLoadConfirm".Translate(doc.name), after);
+        }
+
+        private void ReplaceWorkingConfirmed(Ruleset next, TaggedString confirmText, Action after = null)
+        {
+            if (next == null) return;
+            void Apply()
+            {
+                working = next;
+                valueBuffers.Clear();
+                after?.Invoke();
+            }
+            if (working.rules.Count > 0)
+                Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(confirmText, Apply));
+            else Apply();
+        }
 
         // ---- Rule construction / menus ----
 
