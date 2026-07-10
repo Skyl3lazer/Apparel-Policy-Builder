@@ -323,6 +323,8 @@ namespace ApparelPolicyBuilder
             foreach (AttributeRule rule in working.rules)
             {
                 if (rule.layerScope != layer) continue;
+                var band = new Rect(0f, y, width, RuleRowHeight);
+                if (Mouse.IsOver(band)) Widgets.DrawHighlight(band);
                 var rowRect = new Rect(12f, y, width - 12f, RuleRowHeight);
                 if (DrawRuleRow(rowRect.ContractedBy(1f), rule)) toDelete = rule;
                 y += RuleRowHeight;
@@ -331,7 +333,7 @@ namespace ApparelPolicyBuilder
 
         private bool DrawRuleRow(Rect row, AttributeRule rule)
         {
-            const float gap = 4f;
+            const float gap = 4f, iconW = 18f, valueCol = 170f, fieldW = 48f;
             float x = row.x;
 
             Rect Slice(float w)
@@ -341,20 +343,21 @@ namespace ApparelPolicyBuilder
                 return r;
             }
 
-            if (Mouse.IsOver(row)) Widgets.DrawHighlight(row);
-
+            var iconSlot = Slice(iconW);
             if (rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints)
             {
+                DrawGlyph(iconSlot, rule.rangeBound == RangeBound.AtLeast ? ">" : "<");
                 if (Widgets.ButtonText(Slice(74f), ("APB.Bound." + rule.rangeBound).Translate().CapitalizeFirst()))
                     rule.rangeBound = rule.rangeBound == RangeBound.AtLeast ? RangeBound.AtMost : RangeBound.AtLeast;
             }
             else
             {
                 bool allow = rule.polarity == RulePolarity.Require;
+                DrawStateIcon(iconSlot, allow ? Widgets.CheckboxOnTex : Widgets.CheckboxOffTex);
                 string label = rule.kind == RuleAttributeKind.SpecialFilter
                     ? (allow ? "APB.Special.Allow" : "APB.Special.Disallow").Translate()
                     : ("APB.Polarity." + rule.polarity).Translate();
-                if (ColoredToggle(Slice(74f), label, allow))
+                if (Widgets.ButtonText(Slice(74f), label))
                     rule.polarity = allow ? RulePolarity.Forbid : RulePolarity.Require;
             }
 
@@ -373,25 +376,44 @@ namespace ApparelPolicyBuilder
             var deleteRect = new Rect(row.xMax - 24f, row.y, 24f, row.height);
             bool delete = Widgets.ButtonImage(deleteRect, TexButton.Delete);
 
+            // A fixed value column so the value controls line up across rows.
+            float valueX = deleteRect.x - gap - valueCol;
+            var nameRect = new Rect(x, row.y, Mathf.Max(valueX - gap - x, 40f), row.height);
+            var valueRect = new Rect(valueX, row.y, valueCol, row.height);
+
             switch (rule.kind)
             {
                 case RuleAttributeKind.Numeric:
-                    DrawNumericContent(row, rule, deleteRect, x, gap, Slice);
+                    RowLabel(nameRect, rule.stat?.LabelCap ?? "?");
+                    if (rule.stat != null && !rule.stat.description.NullOrEmpty())
+                        TooltipHandler.TipRegion(nameRect, rule.stat.description);
+                    float modeW = valueCol - gap - fieldW;
+                    if (Widgets.ButtonText(new Rect(valueX, row.y, modeW, row.height),
+                            ("APB.Mode." + rule.numericMode).Translate().CapitalizeFirst()))
+                        OpenModeMenu(rule);
+                    if (rule.NeedsThreshold)
+                        DrawThresholdField(new Rect(valueX + modeW + gap, row.y, fieldW, row.height), rule);
                     break;
                 case RuleAttributeKind.Categorical:
-                    DrawSingleValueRow(row, deleteRect, x, gap, OptionFor(rule)?.label ?? rule.attrKey,
-                        CategoricalValueLabel(rule), () => OpenCategoricalMenu(rule));
+                    RowLabel(nameRect, OptionFor(rule)?.label ?? rule.attrKey);
+                    if (Widgets.ButtonText(valueRect, CategoricalValueLabel(rule)))
+                        OpenCategoricalMenu(rule);
                     break;
                 case RuleAttributeKind.Material:
-                    DrawSingleValueRow(row, deleteRect, x, gap, "APB.Facet.Material".Translate(),
-                        rule.materialStuff?.LabelCap ?? "APB.Pick".Translate(), () => OpenMaterialMenu(rule));
+                    RowLabel(nameRect, "APB.Facet.Material".Translate());
+                    if (Widgets.ButtonText(valueRect, rule.materialStuff?.LabelCap ?? "APB.Pick".Translate()))
+                        OpenMaterialMenu(rule);
                     break;
                 case RuleAttributeKind.Quality:
-                    DrawSingleValueRow(row, deleteRect, x, gap, "APB.Facet.Quality".Translate(),
-                        rule.qualityValue.GetLabel().CapitalizeFirst(), () => OpenQualityMenu(rule));
+                    RowLabel(nameRect, "APB.Facet.Quality".Translate());
+                    if (Widgets.ButtonText(valueRect, rule.qualityValue.GetLabel().CapitalizeFirst()))
+                        OpenQualityMenu(rule);
                     break;
                 case RuleAttributeKind.HitPoints:
-                    DrawHitPointsContent(row, rule, deleteRect, x);
+                    RowLabel(nameRect, "APB.Facet.HitPoints".Translate());
+                    const float pctW = 14f;
+                    DrawPercentField(new Rect(valueX, row.y, valueCol - pctW, row.height), rule);
+                    RowLabel(new Rect(valueX + valueCol - pctW + 2f, row.y, pctW, row.height), "%");
                     break;
                 case RuleAttributeKind.SpecialFilter:
                     RowLabel(new Rect(x, row.y, Mathf.Max(deleteRect.x - gap - x, 40f), row.height),
@@ -402,51 +424,20 @@ namespace ApparelPolicyBuilder
             return delete;
         }
 
-        private void DrawNumericContent(Rect row, AttributeRule rule, Rect deleteRect, float x, float gap, Func<float, Rect> Slice)
+        private void DrawThresholdField(Rect rect, AttributeRule rule)
         {
-            float fixedRight = 104f + gap + 48f;
-            float labelWidth = deleteRect.x - gap - fixedRight - gap - x;
-            var labelRect = Slice(Mathf.Max(labelWidth, 60f));
-            RowLabel(labelRect, rule.stat?.LabelCap ?? "?");
-            if (rule.stat != null && !rule.stat.description.NullOrEmpty())
-                TooltipHandler.TipRegion(labelRect, rule.stat.description);
-
-            if (Widgets.ButtonText(Slice(104f), ("APB.Mode." + rule.numericMode).Translate().CapitalizeFirst()))
-                OpenModeMenu(rule);
-
-            var valueRect = Slice(48f);
-            if (rule.NeedsThreshold)
-            {
-                if (!valueBuffers.TryGetValue(rule, out string buffer)) buffer = rule.threshold.ToString("0.###");
-                Widgets.TextFieldNumeric(valueRect, ref rule.threshold, ref buffer, -1e9f, 1e9f);
-                valueBuffers[rule] = buffer;
-            }
+            if (!valueBuffers.TryGetValue(rule, out string buffer)) buffer = rule.threshold.ToString("0.###");
+            Widgets.TextFieldNumeric(rect, ref rule.threshold, ref buffer, -1e9f, 1e9f);
+            valueBuffers[rule] = buffer;
         }
 
-        private void DrawHitPointsContent(Rect row, AttributeRule rule, Rect deleteRect, float x)
+        private void DrawPercentField(Rect rect, AttributeRule rule)
         {
-            const float fieldW = 46f, pctW = 14f, gap = 4f;
-            var labelRect = new Rect(x, row.y, deleteRect.x - gap - x - fieldW - pctW - gap, row.height);
-            RowLabel(labelRect, "APB.Facet.HitPoints".Translate());
-
-            var fieldRect = new Rect(deleteRect.x - gap - pctW - fieldW, row.y, fieldW, row.height);
             float pct = Mathf.Round(rule.threshold * 100f);
             if (!valueBuffers.TryGetValue(rule, out string buffer)) buffer = pct.ToString("0");
-            Widgets.TextFieldNumeric(fieldRect, ref pct, ref buffer, 0f, 100f);
+            Widgets.TextFieldNumeric(rect, ref pct, ref buffer, 0f, 100f);
             rule.threshold = pct / 100f;
             valueBuffers[rule] = buffer;
-            RowLabel(new Rect(fieldRect.xMax + 2f, row.y, pctW, row.height), "%");
-        }
-
-        // label on the left, a single picker button filling the space before delete
-        private void DrawSingleValueRow(Rect row, Rect deleteRect, float x, float gap, string label, string valueLabel, Action onClick)
-        {
-            const float ctrlW = 150f;
-            var ctrlRect = new Rect(deleteRect.x - gap - ctrlW, row.y, ctrlW, row.height);
-            var labelRect = new Rect(x, row.y, Mathf.Max(ctrlRect.x - gap - x, 40f), row.height);
-            RowLabel(labelRect, label);
-            if (Widgets.ButtonText(ctrlRect, valueLabel))
-                onClick();
         }
 
         private static void DrawFaded(Rect rect, string text, TextAnchor anchor)
@@ -467,13 +458,19 @@ namespace ApparelPolicyBuilder
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        private static bool ColoredToggle(Rect rect, string label, bool positive)
+        private static void DrawStateIcon(Rect slot, Texture2D tex)
         {
-            Color prev = GUI.color;
-            GUI.color = positive ? new Color(0.5f, 0.78f, 0.5f) : new Color(0.85f, 0.5f, 0.5f);
-            bool clicked = Widgets.ButtonText(rect, label);
-            GUI.color = prev;
-            return clicked;
+            const float s = 18f;
+            GUI.DrawTexture(new Rect(slot.x, slot.y + (slot.height - s) / 2f, s, s), tex);
+        }
+
+        private static void DrawGlyph(Rect slot, string glyph)
+        {
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(slot, "<b>" + glyph + "</b>");
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
         }
 
         // ---- Bottom buttons ----

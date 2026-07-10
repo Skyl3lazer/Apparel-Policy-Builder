@@ -232,6 +232,9 @@ namespace ApparelPolicyBuilder
                 if (label.NullOrEmpty()) continue;
                 List<CategoricalValue> values = ExtractCategoricalValues(entry, req);
                 if (values.Count == 0) continue;
+                // Numeric-valued card entries (weapon stats like Miss Radius, percentages) aren't
+                // meaningful as a value picker and have no StatDef to filter on, so skip them.
+                if (values.All(v => LooksNumeric(v.token))) continue;
 
                 string key = "cat:" + entry.category.defName + ":" + label;
                 if (!catOptions.TryGetValue(key, out AttributeOption opt))
@@ -283,6 +286,15 @@ namespace ApparelPolicyBuilder
                     }
             }
             return result;
+        }
+
+        private static bool LooksNumeric(string s)
+        {
+            s = s?.TrimStart();
+            if (s.NullOrEmpty()) return false;
+            char c = s[0];
+            if ((c == '+' || c == '-') && s.Length > 1) c = s[1];
+            return char.IsDigit(c);
         }
 
         private static void BuildMaterialFilterMap(HashSet<ThingDef> apparelStuffs)
