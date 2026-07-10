@@ -5,7 +5,6 @@ A RimWorld mod that adds an [b]Attribute Filter[/b] button to the Apparel Policy
 Applying is just a normal edit of the vanilla policy: the mod only flips which apparel pieces are allowed, so it stays compatible with everything else that reads an apparel policy. Nothing runs on tick, and attribute data is cached once at load.
 
 [h2]How it works[/h2]
-
 [olist]
 [*]Open [b]Apparel Policies[/b] and click [b]Attribute Filter[/b].
 [*]Pick an attribute from the left to add a rule about it
@@ -18,19 +17,16 @@ Applying is just a normal edit of the vanilla policy: the mod only flips which a
 [/olist]
 
 [h2]Dependencies[/h2]
-
 [list]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077]Harmony[/url]
 [/list]
 
 [h2]Supported versions[/h2]
-
 [list]
 [*]RimWorld 1.6
 [/list]
 
 [h2]Check Out My Other Mods![/h2]
-
 [list]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3754416811]Digital Storage[/url] - Industrial-tier shelves that store far more books than a bookcase while still granting reading bonuses.
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3732890624]Break Timer[/url] - See what breaks your pawns are at risk of, and find out when they'll get over it.

@@ -8,7 +8,7 @@ Applying is just a normal edit of the vanilla policy: the mod only flips which a
 
 1) Open **Apparel Policies** and click **Attribute Filter**.
 2) Pick an attribute from the left to add a rule about it
-3) Each rule is **Require** or **Forbid**,and is scoped either **Globally** or to a single apparel **Layer** (so you can build a whole outfit layer by layer). For example:
+3) Each rule is **Require** or **Forbid**, and is scoped either **Globally** or to a single apparel **Layer** (so you can build a whole outfit layer by layer). For example:
 
 - *Forbid, Headgear, Shooting Accuracy, negative* - no headgear that hurts your shooting.
 - *Require, Middle, Armor - Sharp, greater than 0.4* - only well-armored mid-layer wear. You can even choose stuffables to evaluate in the top right.
