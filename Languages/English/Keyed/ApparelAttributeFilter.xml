@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+
+  <!-- Button on the Apparel Policy screen -->
+  <AAF.OpenFilter>Attribute Filter</AAF.OpenFilter>
+  <AAF.OpenFilterTip>Open the attribute filter to build rules that toggle apparel in this policy by armor, insulation, coverage and other stats.</AAF.OpenFilterTip>
+
+  <!-- Window -->
+  <AAF.Title>Apparel Attribute Filter</AAF.Title>
+  <AAF.SearchHint>Search attributes…</AAF.SearchHint>
+  <AAF.Covers>Covers</AAF.Covers>
+  <AAF.CoversLabel>Covers:</AAF.CoversLabel>
+  <AAF.OtherCategory>Other</AAF.OtherCategory>
+  <AAF.Global>Global</AAF.Global>
+  <AAF.NoRules>No rules yet.\nPick an attribute on the left to add one.</AAF.NoRules>
+  <AAF.Pick>Pick…</AAF.Pick>
+
+  <!-- Polarity -->
+  <AAF.Polarity.Forbid>Forbid</AAF.Polarity.Forbid>
+  <AAF.Polarity.Require>Require</AAF.Polarity.Require>
+
+  <!-- Numeric modes -->
+  <AAF.Mode.Positive>positive</AAF.Mode.Positive>
+  <AAF.Mode.Negative>negative</AAF.Mode.Negative>
+  <AAF.Mode.None>none</AAF.Mode.None>
+  <AAF.Mode.GreaterThan>greater than</AAF.Mode.GreaterThan>
+  <AAF.Mode.LessThan>less than</AAF.Mode.LessThan>
+  <AAF.Mode.EqualTo>equal to</AAF.Mode.EqualTo>
+
+  <!-- Bottom buttons -->
+  <AAF.Apply>Apply</AAF.Apply>
+  <AAF.ApplyTip>Recompute the policy from scratch: allow all apparel, then remove every piece disqualified by a rule. Overwrites the policy's current toggles, and saves these rules.</AAF.ApplyTip>
+  <AAF.Save>Save</AAF.Save>
+  <AAF.SaveTip>Save these rules without changing the policy's current apparel toggles.</AAF.SaveTip>
+  <AAF.Cancel>Cancel</AAF.Cancel>
+
+</LanguageData>
