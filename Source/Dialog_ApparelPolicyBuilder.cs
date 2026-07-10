@@ -346,7 +346,7 @@ namespace ApparelPolicyBuilder
             var iconSlot = Slice(iconW);
             if (rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints)
             {
-                DrawGlyph(iconSlot, rule.rangeBound == RangeBound.AtLeast ? ">" : "<");
+                DrawGlyph(iconSlot, rule.rangeBound == RangeBound.AtLeast ? "≥" : "≤");
                 if (Widgets.ButtonText(Slice(74f), ("APB.Bound." + rule.rangeBound).Translate().CapitalizeFirst()))
                     rule.rangeBound = rule.rangeBound == RangeBound.AtLeast ? RangeBound.AtMost : RangeBound.AtLeast;
             }
@@ -454,7 +454,7 @@ namespace ApparelPolicyBuilder
         private static void RowLabel(Rect rect, string text)
         {
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(rect, text);
+            Widgets.Label(rect, text.Truncate(rect.width));
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
