@@ -20,7 +20,8 @@ namespace ApparelAttributeFilter
 
         private readonly ApparelPolicy policy;
         private Ruleset working;
-        private readonly List<KeyValuePair<StatCategoryDef, List<StatDef>>> categorizedStats;
+        private readonly List<AttributeCategory> categories;
+        private readonly HashSet<string> collapsedCategories = new HashSet<string>();
 
         private string searchText = "";
         private Vector2 leftScroll;
@@ -37,10 +38,16 @@ namespace ApparelAttributeFilter
             Ruleset stored = GameComponent_ApparelAttributeFilter.Instance?.GetRuleset(policy);
             working = stored != null ? stored.Clone() : new Ruleset();
 
-            categorizedStats = AttributeCache.NumericAttributes
-                .GroupBy(s => s.category)
-                .OrderBy(g => g.Key?.displayOrder ?? int.MaxValue)
-                .Select(g => new KeyValuePair<StatCategoryDef, List<StatDef>>(g.Key, g.ToList()))
+            // Merge categories that share a display name (vanilla has several "Basics").
+            categories = AttributeCache.NumericAttributes
+                .GroupBy(CategoryLabelOf)
+                .Select(g => new AttributeCategory
+                {
+                    label = g.Key,
+                    order = g.Min(s => s.category?.displayOrder ?? int.MaxValue),
+                    stats = g.OrderBy(s => (s.label ?? s.defName)).ToList()
+                })
+                .OrderBy(c => c.order).ThenBy(c => c.label)
                 .ToList();
 
             doCloseX = true;
@@ -88,13 +95,16 @@ namespace ApparelAttributeFilter
 
             var listRect = new Rect(inner.x, searchRect.yMax + 6f, inner.width, inner.yMax - searchRect.yMax - 6f);
 
+            bool searching = !searchText.NullOrEmpty();
             bool coversVisible = Matches("AAF.Covers".Translate());
             float viewHeight = (coversVisible ? RowHeight : 0f);
-            foreach (var group in categorizedStats)
+            foreach (AttributeCategory cat in categories)
             {
-                int visible = group.Value.Count(CoreMatches);
+                int visible = cat.stats.Count(CoreMatches);
                 if (visible == 0) continue;
-                viewHeight += HeaderHeight + visible * RowHeight;
+                viewHeight += HeaderHeight;
+                if (searching || !collapsedCategories.Contains(cat.label))
+                    viewHeight += visible * RowHeight;
             }
 
             var viewRect = new Rect(0f, 0f, listRect.width - 16f, Mathf.Max(viewHeight, listRect.height));
@@ -108,24 +118,37 @@ namespace ApparelAttributeFilter
                 y += RowHeight;
             }
 
-            foreach (var group in categorizedStats)
+            foreach (AttributeCategory cat in categories)
             {
-                List<StatDef> visibleStats = group.Value.Where(CoreMatches).ToList();
+                List<StatDef> visibleStats = cat.stats.Where(CoreMatches).ToList();
                 if (visibleStats.Count == 0) continue;
 
+                bool expanded = searching || !collapsedCategories.Contains(cat.label);
+
                 var headerRect = new Rect(0f, y, viewRect.width, HeaderHeight);
+                if (Mouse.IsOver(headerRect)) Widgets.DrawHighlight(headerRect);
+                var iconRect = new Rect(headerRect.x + 2f, headerRect.y + (HeaderHeight - 16f) / 2f, 16f, 16f);
+                GUI.DrawTexture(iconRect, expanded ? TexButton.Minus : TexButton.Plus);
                 Color prevHeader = GUI.color;
                 GUI.color = new Color(0.8f, 0.8f, 0.8f);
-                Widgets.Label(headerRect, (group.Key?.LabelCap ?? "AAF.OtherCategory".Translate()).ToString());
+                Widgets.Label(new Rect(headerRect.x + 22f, headerRect.y, headerRect.width - 22f, headerRect.height),
+                    cat.label);
                 GUI.color = prevHeader;
+                if (Widgets.ButtonInvisible(headerRect) && !searching)
+                {
+                    if (!collapsedCategories.Remove(cat.label)) collapsedCategories.Add(cat.label);
+                }
                 y += HeaderHeight;
+
+                if (!expanded) continue;
 
                 foreach (StatDef stat in visibleStats)
                 {
                     var statRect = new Rect(0f, y, viewRect.width, RowHeight);
                     if (Mouse.IsOver(statRect)) Widgets.DrawHighlight(statRect);
                     if (!stat.description.NullOrEmpty()) TooltipHandler.TipRegion(statRect, stat.description);
-                    Widgets.Label(statRect, stat.LabelCap);
+                    Widgets.Label(new Rect(statRect.x + 14f, statRect.y, statRect.width - 14f, statRect.height),
+                        stat.LabelCap);
                     if (Widgets.ButtonInvisible(statRect)) AddNumericRule(stat);
                     y += RowHeight;
                 }
@@ -139,6 +162,19 @@ namespace ApparelAttributeFilter
         private bool Matches(string label)
             => searchText.NullOrEmpty()
                || (label != null && label.IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0);
+
+        private static string CategoryLabelOf(StatDef stat)
+            => stat.category != null && !stat.category.label.NullOrEmpty()
+                ? stat.category.LabelCap.ToString()
+                : "AAF.OtherCategory".Translate().ToString();
+
+        // Numeric attributes grouped by display name (duplicate-named categories merged).
+        private class AttributeCategory
+        {
+            public string label;
+            public int order;
+            public List<StatDef> stats;
+        }
 
         // ---- Right: rule list grouped by scope ----
 

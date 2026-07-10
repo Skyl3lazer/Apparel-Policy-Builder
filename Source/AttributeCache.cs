@@ -35,6 +35,10 @@ namespace ApparelAttributeFilter
         public static List<ApparelLayerDef> Layers { get; private set; }
         public static List<BodyPartGroupDef> Covers { get; private set; }
 
+        // Stuff-powered stats (armor, insulation) mapped to the apparel multiplier stat that gates
+        // them (StatPart_Stuff.multiplierStat). These live in no stat list; the material supplies them.
+        private static Dictionary<StatDef, StatDef> stuffPoweredMultipliers;
+
         public static void EnsureBuilt()
         {
             if (Apparel == null) Build();
@@ -46,6 +50,13 @@ namespace ApparelAttributeFilter
             var numericSet = new HashSet<StatDef>();
             var layerSet = new HashSet<ApparelLayerDef>();
             var coverSet = new HashSet<BodyPartGroupDef>();
+
+            stuffPoweredMultipliers = new Dictionary<StatDef, StatDef>();
+            foreach (StatDef s in DefDatabase<StatDef>.AllDefsListForReading)
+            {
+                StatPart_Stuff part = s.parts?.OfType<StatPart_Stuff>().FirstOrDefault();
+                if (part?.multiplierStat != null) stuffPoweredMultipliers[s] = part.multiplierStat;
+            }
 
             foreach (ThingDef def in DefDatabase<ThingDef>.AllDefsListForReading)
             {
@@ -108,6 +119,16 @@ namespace ApparelAttributeFilter
                 if (stat.alwaysHide) continue;
                 Add(result, stat, def.GetStatValueAbstract(stat, stuff));
             }
+
+            // Look at material multiplier for stuffables
+            if (stuff != null && stuffPoweredMultipliers != null)
+                foreach (KeyValuePair<StatDef, StatDef> pair in stuffPoweredMultipliers)
+                {
+                    StatDef stat = pair.Key;
+                    if (stat.alwaysHide || result.ContainsKey(stat)) continue;
+                    float multiplier = def.GetStatValueAbstract(pair.Value);
+                    if (multiplier != 0f) result[stat] = multiplier;
+                }
 
             return result;
         }
