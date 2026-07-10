@@ -69,6 +69,10 @@ namespace ApparelPolicyBuilder
 
         // Stuff-powered stats (armor/insulation) mapped to their StuffEffectMultiplier stat.
         private static Dictionary<StatDef, StatDef> stuffPoweredMultipliers;
+        // A StatPart_Stuff's power and multiplier stats restate the real apparel stat, so they are excluded.
+        private static HashSet<StatDef> stuffMetaStats;
+        // Stats whose worker throws at def level (needs a spawned thing); learned once, then skipped.
+        private static HashSet<StatDef> unevaluableStats;
         private static Dictionary<ThingDef, SpecialThingFilterDef> materialFilters;
         private static Dictionary<string, AttributeOption> optionsByKey;
 
@@ -96,10 +100,18 @@ namespace ApparelPolicyBuilder
             bool qualityActive = false, hpActive = false;
 
             stuffPoweredMultipliers = new Dictionary<StatDef, StatDef>();
+            stuffMetaStats = new HashSet<StatDef>();
+            unevaluableStats = new HashSet<StatDef>();
             foreach (StatDef s in DefDatabase<StatDef>.AllDefsListForReading)
             {
                 StatPart_Stuff part = s.parts?.OfType<StatPart_Stuff>().FirstOrDefault();
-                if (part?.multiplierStat != null) stuffPoweredMultipliers[s] = part.multiplierStat;
+                if (part == null) continue;
+                if (part.multiplierStat != null)
+                {
+                    stuffPoweredMultipliers[s] = part.multiplierStat;
+                    stuffMetaStats.Add(part.multiplierStat);
+                }
+                if (part.stuffPowerStat != null) stuffMetaStats.Add(part.stuffPowerStat);
             }
 
             // Exactly the defs the apparel policy screen shows: its parent filter allows the
@@ -327,25 +339,23 @@ namespace ApparelPolicyBuilder
             ThingDef stuff = def.MadeFromStuff ? GenStuff.DefaultStuffFor(def) : null;
             StatRequest req = StatRequest.For(def, stuff);
 
-            // ShouldShowFor keeps only stats that apply to this apparel, dropping material-global
-            // construction stats like DoorOpenSpeed that the stuff also carries.
-            var candidates = new HashSet<StatDef>();
-            if (def.statBases != null)
-                foreach (StatModifier sm in def.statBases)
-                    if (sm?.stat != null) candidates.Add(sm.stat);
-            if (stuff?.stuffProps != null)
+            // Scan every stat, not just statBases, so computed stats like market value appear too.
+            foreach (StatDef stat in DefDatabase<StatDef>.AllDefsListForReading)
             {
-                CollectStats(stuff.stuffProps.statOffsets, candidates);
-                CollectStats(stuff.stuffProps.statFactors, candidates);
-            }
-            foreach (StatDef stat in candidates)
-            {
-                if (stat.alwaysHide || !stat.Worker.ShouldShowFor(req)) continue;
-                Add(result, stat, def.GetStatValueAbstract(stat, stuff));
+                if (stat.alwaysHide || stuffPoweredMultipliers.ContainsKey(stat)
+                    || stuffMetaStats.Contains(stat) || unevaluableStats.Contains(stat))
+                    continue;
+                try
+                {
+                    if (stat.Worker.ShouldShowFor(req)) Add(result, stat, def.GetStatValueAbstract(stat, stuff));
+                }
+                catch
+                {
+                    unevaluableStats.Add(stat);
+                }
             }
 
-            // Gauge armor/insulation by the multiplier so a piece counts even when its default
-            // material zeroes a given type.
+            // Gauge armor/insulation by the multiplier so a piece counts even when its material zeroes that type.
             if (stuff != null && stuffPoweredMultipliers != null)
                 foreach (KeyValuePair<StatDef, StatDef> pair in stuffPoweredMultipliers)
                 {
@@ -358,12 +368,6 @@ namespace ApparelPolicyBuilder
             return result;
         }
 
-        private static void CollectStats(List<StatModifier> mods, HashSet<StatDef> into)
-        {
-            if (mods == null) return;
-            foreach (StatModifier sm in mods)
-                if (sm?.stat != null) into.Add(sm.stat);
-        }
 
         private static void Add(Dictionary<StatDef, float> dict, StatDef stat, float value)
             => dict[stat] = dict.TryGetValue(stat, out float existing) ? existing + value : value;
