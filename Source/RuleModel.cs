@@ -78,14 +78,25 @@ namespace ApparelPolicyBuilder
             }
         }
 
-        // The "utility" apparel layer is defName Belt.
-        private static ApparelLayerDef utilityLayer;
-        private static ApparelLayerDef UtilityLayer
-            => utilityLayer ??= DefDatabase<ApparelLayerDef>.GetNamedSilentFail("Belt");
+        // Utility layers: the vanilla Belt layer plus any layer patched with UtilityLayerExtension.
+        private static HashSet<ApparelLayerDef> utilityLayers;
+        private static HashSet<ApparelLayerDef> UtilityLayers
+        {
+            get
+            {
+                if (utilityLayers != null) return utilityLayers;
+                utilityLayers = new HashSet<ApparelLayerDef>();
+                ApparelLayerDef belt = DefDatabase<ApparelLayerDef>.GetNamedSilentFail("Belt");
+                if (belt != null) utilityLayers.Add(belt);
+                foreach (ApparelLayerDef layer in DefDatabase<ApparelLayerDef>.AllDefsListForReading)
+                    if (layer.HasModExtension<UtilityLayerExtension>()) utilityLayers.Add(layer);
+                return utilityLayers;
+            }
+        }
 
         public bool InScope(ApparelAttributeInfo info)
         {
-            if (exceptUtility) return UtilityLayer == null || !info.Layers.Contains(UtilityLayer);
+            if (exceptUtility) return !UtilityLayers.Overlaps(info.Layers);
             return layerScope == null || info.Layers.Contains(layerScope);
         }
 
