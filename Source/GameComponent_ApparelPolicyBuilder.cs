@@ -21,6 +21,11 @@ namespace ApparelPolicyBuilder
             else rulesets[policy.id] = ruleset;
         }
 
+        public void Remove(ApparelPolicy policy)
+        {
+            if (policy != null) rulesets.Remove(policy.id);
+        }
+
         public override void ExposeData()
         {
             if (Scribe.mode == LoadSaveMode.Saving) Prune();

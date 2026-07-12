@@ -38,6 +38,16 @@ namespace ApparelPolicyBuilder
         }
     }
 
+    // Outfit ids are reused by MakeNewOutfit, so a deleted policy's rules would bleed into the next new one.
+    [HarmonyPatch(typeof(OutfitDatabase), nameof(OutfitDatabase.TryDelete))]
+    public static class Patch_OutfitDatabase_TryDelete
+    {
+        public static void Postfix(ApparelPolicy apparelPolicy, AcceptanceReport __result)
+        {
+            if (__result.Accepted) GameComponent_ApparelPolicyBuilder.Instance?.Remove(apparelPolicy);
+        }
+    }
+
     // Vanilla's copy-policy duplicates only the filter; carry the source's rules onto the new policy too.
     [HarmonyPatch(typeof(ApparelPolicy), nameof(ApparelPolicy.CopyFrom))]
     public static class Patch_ApparelPolicy_CopyFrom
