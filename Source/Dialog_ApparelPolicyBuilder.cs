@@ -108,23 +108,27 @@ namespace ApparelPolicyBuilder
             var listRect = new Rect(inner.x, searchRect.yMax + 6f, inner.width, inner.yMax - searchRect.yMax - 6f);
             bool searching = !searchText.NullOrEmpty();
 
+            var visiblePerGroup = new List<AttributeOption>[groups.Count];
             float viewHeight = 0f;
-            foreach (OptionGroup g in groups)
+            for (int i = 0; i < groups.Count; i++)
             {
-                int visible = g.options.Count(OptionMatches);
-                if (visible == 0) continue;
+                OptionGroup g = groups[i];
+                List<AttributeOption> visible = g.options.Where(OptionMatches).ToList();
+                visiblePerGroup[i] = visible;
+                if (visible.Count == 0) continue;
                 viewHeight += HeaderHeight;
                 if (searching || !collapsedGroups.Contains(g.label))
-                    viewHeight += visible * RowHeight;
+                    viewHeight += visible.Count * RowHeight;
             }
 
             var viewRect = new Rect(0f, 0f, listRect.width - 16f, Mathf.Max(viewHeight, listRect.height));
             Widgets.BeginScrollView(listRect, ref leftScroll, viewRect);
             float y = 0f;
 
-            foreach (OptionGroup g in groups)
+            for (int i = 0; i < groups.Count; i++)
             {
-                List<AttributeOption> visible = g.options.Where(OptionMatches).ToList();
+                OptionGroup g = groups[i];
+                List<AttributeOption> visible = visiblePerGroup[i];
                 if (visible.Count == 0) continue;
 
                 bool expanded = searching || !collapsedGroups.Contains(g.label);
