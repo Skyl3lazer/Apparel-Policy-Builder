@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+
+  <!-- Vanilla's Belt layer is the utility layer. -->
+  <Operation Class="PatchOperationAddModExtension">
+    <xpath>Defs/ApparelLayerDef[defName="Belt"]</xpath>
+    <value>
+      <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+    </value>
+  </Operation>
+
+</Patch>

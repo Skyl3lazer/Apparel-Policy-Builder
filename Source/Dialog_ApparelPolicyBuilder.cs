@@ -301,10 +301,12 @@ namespace ApparelPolicyBuilder
         private List<ScopeGroup> ScopeGroups()
         {
             var groups = new List<ScopeGroup>();
-            if (working.rules.Any(r => r.layerScope == null && !r.exceptUtility))
-                groups.Add(new ScopeGroup { key = "global", label = "APB.Global".Translate(), match = r => r.layerScope == null && !r.exceptUtility });
+            if (working.rules.Any(r => r.layerScope == null && !r.exceptUtility && !r.utilityOnly))
+                groups.Add(new ScopeGroup { key = "global", label = "APB.Global".Translate(), match = r => r.layerScope == null && !r.exceptUtility && !r.utilityOnly });
             if (working.rules.Any(r => r.exceptUtility))
                 groups.Add(new ScopeGroup { key = "exceptutil", label = "APB.GlobalExceptUtility".Translate(), match = r => r.exceptUtility });
+            if (working.rules.Any(r => r.utilityOnly))
+                groups.Add(new ScopeGroup { key = "utilityonly", label = "APB.UtilityOnly".Translate(), match = r => r.utilityOnly });
             foreach (ApparelLayerDef layer in working.rules
                 .Where(r => r.layerScope != null).Select(r => r.layerScope).Distinct()
                 .OrderBy(l => l.drawOrder))
@@ -580,7 +582,8 @@ namespace ApparelPolicyBuilder
         }
 
         private string ScopeLabel(AttributeRule rule)
-            => rule.exceptUtility ? "APB.ScopeExceptUtilityShort".Translate().ToString()
+            => rule.utilityOnly ? "APB.UtilityOnly".Translate().ToString()
+               : rule.exceptUtility ? "APB.GlobalExceptUtility".Translate().ToString()
                : rule.layerScope != null ? rule.layerScope.LabelCap.ToString()
                : "APB.Global".Translate().ToString();
 
@@ -588,14 +591,15 @@ namespace ApparelPolicyBuilder
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("APB.Global".Translate(), () => { rule.layerScope = null; rule.exceptUtility = false; collapsedScopes.Remove("global"); }),
-                new FloatMenuOption("APB.GlobalExceptUtility".Translate(), () => { rule.layerScope = null; rule.exceptUtility = true; collapsedScopes.Remove("exceptutil"); })
+                new FloatMenuOption("APB.Global".Translate(), () => { rule.layerScope = null; rule.exceptUtility = false; rule.utilityOnly = false; collapsedScopes.Remove("global"); }),
+                new FloatMenuOption("APB.GlobalExceptUtility".Translate(), () => { rule.layerScope = null; rule.exceptUtility = true; rule.utilityOnly = false; collapsedScopes.Remove("exceptutil"); }),
+                new FloatMenuOption("APB.UtilityOnly".Translate(), () => { rule.layerScope = null; rule.exceptUtility = false; rule.utilityOnly = true; collapsedScopes.Remove("utilityonly"); })
             };
             foreach (ApparelLayerDef layer in AttributeCache.Layers)
             {
                 ApparelLayerDef captured = layer;
                 options.Add(new FloatMenuOption(captured.LabelCap,
-                    () => { rule.layerScope = captured; rule.exceptUtility = false; collapsedScopes.Remove("layer:" + captured.defName); }));
+                    () => { rule.layerScope = captured; rule.exceptUtility = false; rule.utilityOnly = false; collapsedScopes.Remove("layer:" + captured.defName); }));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }

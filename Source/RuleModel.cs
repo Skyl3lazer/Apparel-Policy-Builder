@@ -79,7 +79,6 @@ namespace ApparelPolicyBuilder
             }
         }
 
-        // Utility layers: the vanilla Belt layer plus any layer patched with UtilityLayerExtension.
         private static HashSet<ApparelLayerDef> utilityLayers;
         private static HashSet<ApparelLayerDef> UtilityLayers
         {
@@ -87,8 +86,6 @@ namespace ApparelPolicyBuilder
             {
                 if (utilityLayers != null) return utilityLayers;
                 utilityLayers = new HashSet<ApparelLayerDef>();
-                ApparelLayerDef belt = DefDatabase<ApparelLayerDef>.GetNamedSilentFail("Belt");
-                if (belt != null) utilityLayers.Add(belt);
                 foreach (ApparelLayerDef layer in DefDatabase<ApparelLayerDef>.AllDefsListForReading)
                     if (layer.HasModExtension<UtilityLayerExtension>()) utilityLayers.Add(layer);
                 return utilityLayers;
@@ -97,6 +94,7 @@ namespace ApparelPolicyBuilder
 
         public bool InScope(ApparelAttributeInfo info)
         {
+            if (utilityOnly) return UtilityLayers.Overlaps(info.Layers);
             if (exceptUtility) return !UtilityLayers.Overlaps(info.Layers);
             return layerScope == null || info.Layers.Contains(layerScope);
         }
@@ -115,6 +113,7 @@ namespace ApparelPolicyBuilder
             Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
             Scribe_Defs.Look(ref layerScope, "layerScope");
             Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
+            Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
             Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
             Scribe_Defs.Look(ref stat, "stat");
             Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
