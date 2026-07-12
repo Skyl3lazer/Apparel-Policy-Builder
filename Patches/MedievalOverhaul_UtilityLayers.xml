@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+  <!-- This is an example for how you can make layers you add count as 'utility' layers. 
+      This means that the "Global Except Utility" rule wouldn't filter stuff on these layers.
+  -->
+  <!-- Medieval Overhaul's accessory/attachment layers count as utility. Dropped when MO is absent. -->
+  <Operation Class="PatchOperationSequence" MayRequire="DankPyon.Medieval.Overhaul">
+    <operations>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="DankPyon_NecklaceLayer"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="DankPyon_Ring1Layer"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="DankPyon_ShellAttachment"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+    </operations>
+  </Operation>
+
+</Patch>
