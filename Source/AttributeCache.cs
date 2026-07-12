@@ -355,14 +355,14 @@ namespace ApparelPolicyBuilder
                 }
             }
 
-            // Gauge armor/insulation by the multiplier so a piece counts even when its material zeroes that type.
-            if (stuff != null && stuffPoweredMultipliers != null)
+            // Stuff-powered stats are skipped above; gauge stuffables by the multiplier (counts even when the material zeroes the type), read non-stuffables' intrinsic value.
+            if (stuffPoweredMultipliers != null)
                 foreach (KeyValuePair<StatDef, StatDef> pair in stuffPoweredMultipliers)
                 {
                     StatDef stat = pair.Key;
                     if (stat.alwaysHide || result.ContainsKey(stat)) continue;
-                    float multiplier = def.GetStatValueAbstract(pair.Value);
-                    if (multiplier != 0f) result[stat] = multiplier;
+                    float value = stuff != null ? def.GetStatValueAbstract(pair.Value) : def.GetStatValueAbstract(stat, null);
+                    if (value != 0f) result[stat] = value;
                 }
 
             return result;
