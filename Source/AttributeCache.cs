@@ -74,6 +74,7 @@ namespace ApparelPolicyBuilder
         // Stats whose worker throws at def level (needs a spawned thing); learned once, then skipped.
         private static HashSet<StatDef> unevaluableStats;
         private static Dictionary<ThingDef, SpecialThingFilterDef> materialFilters;
+        private static Dictionary<StuffCategoryDef, HashSet<ThingDef>> stuffByCategory;
         private static Dictionary<string, AttributeOption> optionsByKey;
 
         public static bool IsStuffPowered(StatDef stat)
@@ -113,6 +114,16 @@ namespace ApparelPolicyBuilder
                 }
                 if (part.stuffPowerStat != null) stuffMetaStats.Add(part.stuffPowerStat);
             }
+
+            stuffByCategory = new Dictionary<StuffCategoryDef, HashSet<ThingDef>>();
+            foreach (ThingDef d in DefDatabase<ThingDef>.AllDefsListForReading)
+                if (d.stuffProps?.categories != null)
+                    foreach (StuffCategoryDef c in d.stuffProps.categories)
+                    {
+                        if (!stuffByCategory.TryGetValue(c, out HashSet<ThingDef> set))
+                            stuffByCategory[c] = set = new HashSet<ThingDef>();
+                        set.Add(d);
+                    }
 
             // Exactly the defs the apparel policy screen shows: its parent filter allows the
             // Apparel category. Scanning by def.IsApparel is broader and leaks non-apparel gear.
@@ -286,8 +297,30 @@ namespace ApparelPolicyBuilder
             IEnumerable<Dialog_InfoCard.Hyperlink> links = null;
             try { links = entry.GetHyperlinks(req); } catch { }
             if (links != null)
+            {
+                var stuffs = new List<ThingDef>();
                 foreach (Dialog_InfoCard.Hyperlink h in links)
-                    if (h.def != null) result.Add(new CategoricalValue { token = h.def.defName, label = h.def.LabelCap });
+                {
+                    if (h.def == null) continue;
+                    if (h.def is ThingDef td && td.stuffProps?.categories?.Count > 0) stuffs.Add(td);
+                    else result.Add(new CategoricalValue { token = h.def.defName, label = h.def.LabelCap });
+                }
+                // Collapse a material to its stuff category only when the entry lists that whole category (a stuffable's "any fabric"); a specifically-named material stays itself.
+                var present = new HashSet<ThingDef>(stuffs);
+                var covered = new HashSet<StuffCategoryDef>();
+                foreach (ThingDef td in stuffs)
+                    foreach (StuffCategoryDef cat in td.stuffProps.categories)
+                        if (!covered.Contains(cat) && stuffByCategory != null
+                            && stuffByCategory.TryGetValue(cat, out HashSet<ThingDef> members) && members.All(present.Contains))
+                            covered.Add(cat);
+                foreach (ThingDef td in stuffs)
+                {
+                    bool any = false;
+                    foreach (StuffCategoryDef cat in td.stuffProps.categories)
+                        if (covered.Contains(cat)) { result.Add(new CategoricalValue { token = cat.defName, label = cat.LabelCap }); any = true; }
+                    if (!any) result.Add(new CategoricalValue { token = td.defName, label = td.LabelCap });
+                }
+            }
 
             if (result.Count == 0)
             {
