@@ -131,7 +131,9 @@ namespace ApparelPolicyBuilder
 
                     apparel.Add(new ApparelAttributeInfo(def, layers, statValues, catTokens));
                     layerSet.UnionWith(layers);
-                    numericSet.UnionWith(statValues.Keys);
+                    // Offer a stat only when some loaded apparel actually carries a non-default value for it.
+                    foreach (KeyValuePair<StatDef, float> kv in statValues)
+                        if (kv.Value != kv.Key.defaultBaseValue) numericSet.Add(kv.Key);
                     if (!qualityActive && def.FollowQualityThingFilter()) qualityActive = true;
                     if (!hpActive && def.useHitPoints) hpActive = true;
                 }
