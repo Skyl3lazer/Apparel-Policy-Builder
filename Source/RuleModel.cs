@@ -17,7 +17,8 @@ namespace ApparelPolicyBuilder
     {
         public RulePolarity polarity = RulePolarity.Forbid;
         public ApparelLayerDef layerScope; // null = Global; per-def kinds only
-        public bool exceptUtility; // Global variant scoping to everything outside the utility (Belt) layer
+        public bool exceptUtility;
+        public bool utilityOnly;
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
 
         public StatDef stat;

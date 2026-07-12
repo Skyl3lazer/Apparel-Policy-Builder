@@ -298,7 +298,6 @@ namespace ApparelPolicyBuilder
             }
         }
 
-        // Global, then Global Except Utility, then a group per layer used by a rule (draw order).
         private List<ScopeGroup> ScopeGroups()
         {
             var groups = new List<ScopeGroup>();
@@ -378,14 +377,16 @@ namespace ApparelPolicyBuilder
 
             if (rule.IsPerDef)
             {
-                if (Widgets.ButtonText(Slice(106f), ScopeLabel(rule)))
+                var scopeSlot = Slice(26f);
+                TooltipHandler.TipRegion(scopeSlot, ScopeLabel(rule));
+                if (Widgets.ButtonText(scopeSlot, "≡"))
                     OpenScopeMenu(rule);
             }
             else
             {
-                var scopeRect = Slice(106f);
-                TooltipHandler.TipRegionByKey(scopeRect, "APB.FacetScopeTip");
-                DrawFaded(scopeRect, "APB.Global".Translate(), TextAnchor.MiddleCenter);
+                var scopeSlot = Slice(26f);
+                TooltipHandler.TipRegionByKey(scopeSlot, "APB.FacetScopeTip");
+                DrawFaded(scopeSlot, "≡", TextAnchor.MiddleCenter);
             }
 
             var deleteRect = new Rect(row.xMax - 24f, row.y, 24f, row.height);
