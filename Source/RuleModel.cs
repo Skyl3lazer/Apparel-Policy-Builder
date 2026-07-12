@@ -151,16 +151,59 @@ namespace ApparelPolicyBuilder
                 for (int i = 0; i < rules.Count; i++)
                 {
                     AttributeRule rule = rules[i];
-                    if (!rule.IsPerDef) continue;
+                    if (!rule.IsPerDef || IsStuffCategoryForbid(rule)) continue;
                     if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
                 filter.SetAllow(info.def, allow);
             }
 
+            ApplyIngredientCategoryPass(filter);
             ApplyMaterialPass(filter);
             ApplyRangePasses(filter);
             ApplySpecialFilterPass(filter);
         }
+
+        // A stuff category is one of several materials a piece can be made from, so forbidding it disqualifies a piece only when every one of its stuff categories is forbidden.
+        private void ApplyIngredientCategoryPass(ThingFilter filter)
+        {
+            Dictionary<string, List<AttributeRule>> forbidsByAttr = null;
+            foreach (AttributeRule rule in rules)
+                if (IsStuffCategoryForbid(rule))
+                {
+                    forbidsByAttr ??= new Dictionary<string, List<AttributeRule>>();
+                    if (!forbidsByAttr.TryGetValue(rule.attrKey, out List<AttributeRule> list))
+                        forbidsByAttr[rule.attrKey] = list = new List<AttributeRule>();
+                    list.Add(rule);
+                }
+            if (forbidsByAttr == null) return;
+
+            foreach (ApparelAttributeInfo info in AttributeCache.Apparel)
+                foreach (KeyValuePair<string, List<AttributeRule>> kv in forbidsByAttr)
+                    if (AllStuffCategoriesForbidden(info, kv.Key, kv.Value))
+                    {
+                        filter.SetAllow(info.def, false);
+                        break;
+                    }
+        }
+
+        private static bool AllStuffCategoriesForbidden(ApparelAttributeInfo info, string attrKey, List<AttributeRule> forbids)
+        {
+            bool anyCat = false;
+            foreach (string token in info.TokensFor(attrKey))
+            {
+                if (!AttributeCache.IsStuffCategory(token)) continue;
+                anyCat = true;
+                bool covered = false;
+                foreach (AttributeRule rule in forbids)
+                    if (rule.categoricalValue == token && rule.InScope(info)) { covered = true; break; }
+                if (!covered) return false;
+            }
+            return anyCat;
+        }
+
+        private static bool IsStuffCategoryForbid(AttributeRule r)
+            => r.kind == RuleAttributeKind.Categorical && r.polarity == RulePolarity.Forbid
+               && AttributeCache.IsStuffCategory(r.categoricalValue);
 
         // Each special-filter rule allows or disallows its filter on the policy.
         private void ApplySpecialFilterPass(ThingFilter filter)
