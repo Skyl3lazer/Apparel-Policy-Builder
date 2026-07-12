@@ -13,24 +13,52 @@ namespace ApparelPolicyBuilder
 
     public enum RangeBound : byte { AtLeast, AtMost }
 
-    public class AttributeRule : IExposable
+    public abstract class RuleScalars
     {
         public RulePolarity polarity = RulePolarity.Forbid;
-        public ApparelLayerDef layerScope; // null = Global; per-def kinds only
         public bool exceptUtility;
         public bool utilityOnly;
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
-
-        public StatDef stat;
         public NumericMode numericMode = NumericMode.Negative;
         public float threshold; // also the HitPoints fraction for that facet
-
         public string attrKey;
         public string categoricalValue;
-
         public RangeBound rangeBound = RangeBound.AtLeast;
         public QualityCategory qualityValue = QualityCategory.Normal;
 
+        public void CopyScalarsFrom(RuleScalars src)
+        {
+            polarity = src.polarity;
+            exceptUtility = src.exceptUtility;
+            utilityOnly = src.utilityOnly;
+            kind = src.kind;
+            numericMode = src.numericMode;
+            threshold = src.threshold;
+            attrKey = src.attrKey;
+            categoricalValue = src.categoricalValue;
+            rangeBound = src.rangeBound;
+            qualityValue = src.qualityValue;
+        }
+
+        protected void ExposeScalars()
+        {
+            Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
+            Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
+            Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
+            Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
+            Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
+            Scribe_Values.Look(ref threshold, "threshold", 0f);
+            Scribe_Values.Look(ref attrKey, "attrKey");
+            Scribe_Values.Look(ref categoricalValue, "categoricalValue");
+            Scribe_Values.Look(ref rangeBound, "rangeBound", RangeBound.AtLeast);
+            Scribe_Values.Look(ref qualityValue, "qualityValue", QualityCategory.Normal);
+        }
+    }
+
+    public class AttributeRule : RuleScalars, IExposable
+    {
+        public ApparelLayerDef layerScope; // null = Global; per-def kinds only
+        public StatDef stat;
         public ThingDef materialStuff;
         public SpecialThingFilterDef specialFilter; // Require = allow, Forbid = disallow
 
@@ -110,18 +138,9 @@ namespace ApparelPolicyBuilder
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
+            ExposeScalars();
             Scribe_Defs.Look(ref layerScope, "layerScope");
-            Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
-            Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
-            Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
             Scribe_Defs.Look(ref stat, "stat");
-            Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
-            Scribe_Values.Look(ref threshold, "threshold", 0f);
-            Scribe_Values.Look(ref attrKey, "attrKey");
-            Scribe_Values.Look(ref categoricalValue, "categoricalValue");
-            Scribe_Values.Look(ref rangeBound, "rangeBound", RangeBound.AtLeast);
-            Scribe_Values.Look(ref qualityValue, "qualityValue", QualityCategory.Normal);
             Scribe_Defs.Look(ref materialStuff, "materialStuff");
             Scribe_Defs.Look(ref specialFilter, "specialFilter");
         }

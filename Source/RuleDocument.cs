@@ -5,42 +5,27 @@ using Verse;
 namespace ApparelPolicyBuilder
 {
     // Def references held as defName strings so a document survives a referenced mod being toggled off then on.
-    public class PortableRule : IExposable
+    public class PortableRule : RuleScalars, IExposable
     {
-        public RulePolarity polarity = RulePolarity.Forbid;
         public string layerScope;
-        public bool exceptUtility;
-        public bool utilityOnly;
-        public RuleAttributeKind kind = RuleAttributeKind.Numeric;
         public string stat;
-        public NumericMode numericMode = NumericMode.Negative;
-        public float threshold;
-        public string attrKey;
-        public string categoricalValue;
-        public RangeBound rangeBound = RangeBound.AtLeast;
-        public QualityCategory qualityValue = QualityCategory.Normal;
         public string materialStuff;
         public string specialFilter;
 
         public PortableRule() { }
 
-        public static PortableRule From(AttributeRule r) => new PortableRule
+        public static PortableRule From(AttributeRule r)
         {
-            polarity = r.polarity,
-            layerScope = r.layerScope?.defName,
-            exceptUtility = r.exceptUtility,
-            utilityOnly = r.utilityOnly,
-            kind = r.kind,
-            stat = r.stat?.defName,
-            numericMode = r.numericMode,
-            threshold = r.threshold,
-            attrKey = r.attrKey,
-            categoricalValue = r.categoricalValue,
-            rangeBound = r.rangeBound,
-            qualityValue = r.qualityValue,
-            materialStuff = r.materialStuff?.defName,
-            specialFilter = r.specialFilter?.defName
-        };
+            var pr = new PortableRule
+            {
+                layerScope = r.layerScope?.defName,
+                stat = r.stat?.defName,
+                materialStuff = r.materialStuff?.defName,
+                specialFilter = r.specialFilter?.defName
+            };
+            pr.CopyScalarsFrom(r);
+            return pr;
+        }
 
         // Fails when content the rule needs is absent from the current modlist, so the caller drops it.
         public bool TryResolve(out AttributeRule rule)
@@ -53,20 +38,8 @@ namespace ApparelPolicyBuilder
                 if (layer == null) return false;
             }
 
-            var r = new AttributeRule
-            {
-                polarity = polarity,
-                layerScope = layer,
-                exceptUtility = exceptUtility,
-                utilityOnly = utilityOnly,
-                kind = kind,
-                numericMode = numericMode,
-                threshold = threshold,
-                attrKey = attrKey,
-                categoricalValue = categoricalValue,
-                rangeBound = rangeBound,
-                qualityValue = qualityValue
-            };
+            var r = new AttributeRule { layerScope = layer };
+            r.CopyScalarsFrom(this);
 
             switch (kind)
             {
@@ -94,18 +67,9 @@ namespace ApparelPolicyBuilder
 
         public void ExposeData()
         {
-            Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
+            ExposeScalars();
             Scribe_Values.Look(ref layerScope, "layerScope");
-            Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
-            Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
-            Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
             Scribe_Values.Look(ref stat, "stat");
-            Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
-            Scribe_Values.Look(ref threshold, "threshold", 0f);
-            Scribe_Values.Look(ref attrKey, "attrKey");
-            Scribe_Values.Look(ref categoricalValue, "categoricalValue");
-            Scribe_Values.Look(ref rangeBound, "rangeBound", RangeBound.AtLeast);
-            Scribe_Values.Look(ref qualityValue, "qualityValue", QualityCategory.Normal);
             Scribe_Values.Look(ref materialStuff, "materialStuff");
             Scribe_Values.Look(ref specialFilter, "specialFilter");
         }
