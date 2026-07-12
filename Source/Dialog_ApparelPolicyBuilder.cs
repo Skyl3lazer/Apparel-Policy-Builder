@@ -363,17 +363,23 @@ namespace ApparelPolicyBuilder
             if (rule.kind == RuleAttributeKind.Quality || rule.kind == RuleAttributeKind.HitPoints)
             {
                 DrawGlyph(iconSlot, rule.rangeBound == RangeBound.AtLeast ? "≥" : "≤");
+                bool toggle = Widgets.ButtonInvisible(iconSlot);
                 if (Widgets.ButtonText(Slice(74f), ("APB.Bound." + rule.rangeBound).Translate().CapitalizeFirst()))
+                    toggle = true;
+                if (toggle)
                     rule.rangeBound = rule.rangeBound == RangeBound.AtLeast ? RangeBound.AtMost : RangeBound.AtLeast;
             }
             else
             {
                 bool allow = rule.polarity == RulePolarity.Require;
                 DrawStateIcon(iconSlot, allow ? Widgets.CheckboxOnTex : Widgets.CheckboxOffTex);
+                bool toggle = Widgets.ButtonInvisible(iconSlot);
                 string label = rule.kind == RuleAttributeKind.SpecialFilter
                     ? (allow ? "APB.Special.Allow" : "APB.Special.Disallow").Translate()
                     : ("APB.Polarity." + rule.polarity).Translate();
                 if (Widgets.ButtonText(Slice(74f), label))
+                    toggle = true;
+                if (toggle)
                     rule.polarity = allow ? RulePolarity.Forbid : RulePolarity.Require;
             }
 
