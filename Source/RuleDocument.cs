@@ -9,6 +9,7 @@ namespace ApparelPolicyBuilder
     {
         public RulePolarity polarity = RulePolarity.Forbid;
         public string layerScope;
+        public bool exceptUtility;
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
         public string stat;
         public NumericMode numericMode = NumericMode.Negative;
@@ -26,6 +27,7 @@ namespace ApparelPolicyBuilder
         {
             polarity = r.polarity,
             layerScope = r.layerScope?.defName,
+            exceptUtility = r.exceptUtility,
             kind = r.kind,
             stat = r.stat?.defName,
             numericMode = r.numericMode,
@@ -53,6 +55,7 @@ namespace ApparelPolicyBuilder
             {
                 polarity = polarity,
                 layerScope = layer,
+                exceptUtility = exceptUtility,
                 kind = kind,
                 numericMode = numericMode,
                 threshold = threshold,
@@ -90,6 +93,7 @@ namespace ApparelPolicyBuilder
         {
             Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
             Scribe_Values.Look(ref layerScope, "layerScope");
+            Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
             Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
             Scribe_Values.Look(ref stat, "stat");
             Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);

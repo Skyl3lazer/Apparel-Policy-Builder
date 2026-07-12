@@ -17,6 +17,7 @@ namespace ApparelPolicyBuilder
     {
         public RulePolarity polarity = RulePolarity.Forbid;
         public ApparelLayerDef layerScope; // null = Global; per-def kinds only
+        public bool exceptUtility; // Global variant scoping to everything outside the utility (Belt) layer
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
 
         public StatDef stat;
@@ -77,8 +78,16 @@ namespace ApparelPolicyBuilder
             }
         }
 
+        // The "utility" apparel layer is defName Belt.
+        private static ApparelLayerDef utilityLayer;
+        private static ApparelLayerDef UtilityLayer
+            => utilityLayer ??= DefDatabase<ApparelLayerDef>.GetNamedSilentFail("Belt");
+
         public bool InScope(ApparelAttributeInfo info)
-            => layerScope == null || info.Layers.Contains(layerScope);
+        {
+            if (exceptUtility) return UtilityLayer == null || !info.Layers.Contains(UtilityLayer);
+            return layerScope == null || info.Layers.Contains(layerScope);
+        }
 
         public bool Disqualifies(ApparelAttributeInfo info, ThingDef evalStuff)
         {
@@ -93,6 +102,7 @@ namespace ApparelPolicyBuilder
         {
             Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
             Scribe_Defs.Look(ref layerScope, "layerScope");
+            Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
             Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
             Scribe_Defs.Look(ref stat, "stat");
             Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);

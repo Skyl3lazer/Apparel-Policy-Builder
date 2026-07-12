@@ -25,7 +25,7 @@ namespace ApparelPolicyBuilder
         private Ruleset working;
         private readonly List<OptionGroup> groups;
         private readonly HashSet<string> collapsedGroups = new HashSet<string>();
-        private readonly HashSet<ApparelLayerDef> collapsedScopes = new HashSet<ApparelLayerDef>(); // holds null for Global
+        private readonly HashSet<string> collapsedScopes = new HashSet<string>(); // keyed by scope: "global", "exceptutil", "layer:<defName>"
 
         private string searchText = "";
         private Vector2 leftScroll;
@@ -207,6 +207,13 @@ namespace ApparelPolicyBuilder
             public List<AttributeOption> options;
         }
 
+        private sealed class ScopeGroup
+        {
+            public string key;
+            public string label;
+            public Func<AttributeRule, bool> match;
+        }
+
         // ---- Right: copy/paste + material lens ----
 
         private void DrawRightToolbar(Rect rect)
@@ -264,24 +271,14 @@ namespace ApparelPolicyBuilder
                 return;
             }
 
-            List<ApparelLayerDef> scopeLayers = working.rules
-                .Select(r => r.layerScope).Distinct()
-                .Where(l => l != null)
-                .OrderBy(l => l.drawOrder).ToList();
-            bool hasGlobal = working.rules.Any(r => r.layerScope == null);
+            List<ScopeGroup> groups = ScopeGroups();
 
             float viewHeight = 0f;
-            if (hasGlobal)
+            foreach (ScopeGroup g in groups)
             {
                 viewHeight += HeaderHeight;
-                if (!collapsedScopes.Contains(null))
-                    viewHeight += working.rules.Count(r => r.layerScope == null) * RuleRowHeight;
-            }
-            foreach (ApparelLayerDef layer in scopeLayers)
-            {
-                viewHeight += HeaderHeight;
-                if (!collapsedScopes.Contains(layer))
-                    viewHeight += working.rules.Count(r => r.layerScope == layer) * RuleRowHeight;
+                if (!collapsedScopes.Contains(g.key))
+                    viewHeight += working.rules.Count(g.match) * RuleRowHeight;
             }
 
             var viewRect = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(viewHeight, inner.height));
@@ -289,10 +286,8 @@ namespace ApparelPolicyBuilder
             float y = 0f;
             AttributeRule toDelete = null;
 
-            if (hasGlobal)
-                DrawScopeGroup("APB.Global".Translate(), null, viewRect.width, ref y, ref toDelete);
-            foreach (ApparelLayerDef layer in scopeLayers)
-                DrawScopeGroup(layer.LabelCap, layer, viewRect.width, ref y, ref toDelete);
+            foreach (ScopeGroup g in groups)
+                DrawScopeGroup(g, viewRect.width, ref y, ref toDelete);
 
             Widgets.EndScrollView();
 
@@ -303,20 +298,38 @@ namespace ApparelPolicyBuilder
             }
         }
 
-        private void DrawScopeGroup(string label, ApparelLayerDef layer, float width, ref float y, ref AttributeRule toDelete)
+        // Global, then Global Except Utility, then a group per layer used by a rule (draw order).
+        private List<ScopeGroup> ScopeGroups()
         {
-            bool collapsed = collapsedScopes.Contains(layer);
-            int count = working.rules.Count(r => r.layerScope == layer);
+            var groups = new List<ScopeGroup>();
+            if (working.rules.Any(r => r.layerScope == null && !r.exceptUtility))
+                groups.Add(new ScopeGroup { key = "global", label = "APB.Global".Translate(), match = r => r.layerScope == null && !r.exceptUtility });
+            if (working.rules.Any(r => r.exceptUtility))
+                groups.Add(new ScopeGroup { key = "exceptutil", label = "APB.GlobalExceptUtility".Translate(), match = r => r.exceptUtility });
+            foreach (ApparelLayerDef layer in working.rules
+                .Where(r => r.layerScope != null).Select(r => r.layerScope).Distinct()
+                .OrderBy(l => l.drawOrder))
+            {
+                ApparelLayerDef captured = layer;
+                groups.Add(new ScopeGroup { key = "layer:" + captured.defName, label = captured.LabelCap, match = r => r.layerScope == captured });
+            }
+            return groups;
+        }
+
+        private void DrawScopeGroup(ScopeGroup group, float width, ref float y, ref AttributeRule toDelete)
+        {
+            bool collapsed = collapsedScopes.Contains(group.key);
+            int count = working.rules.Count(group.match);
 
             var headerRect = new Rect(0f, y, width, HeaderHeight);
             if (Mouse.IsOver(headerRect)) Widgets.DrawHighlight(headerRect);
             var iconRect = new Rect(headerRect.x + 2f, headerRect.y + (HeaderHeight - 16f) / 2f, 16f, 16f);
             GUI.DrawTexture(iconRect, collapsed ? TexButton.Plus : TexButton.Minus);
             Widgets.Label(new Rect(headerRect.x + 22f, headerRect.y, headerRect.width - 22f, headerRect.height),
-                $"{label} ({count})");
+                $"{group.label} ({count})");
             if (Widgets.ButtonInvisible(headerRect))
             {
-                if (!collapsedScopes.Remove(layer)) collapsedScopes.Add(layer);
+                if (!collapsedScopes.Remove(group.key)) collapsedScopes.Add(group.key);
             }
             y += HeaderHeight;
 
@@ -324,7 +337,7 @@ namespace ApparelPolicyBuilder
 
             foreach (AttributeRule rule in working.rules)
             {
-                if (rule.layerScope != layer) continue;
+                if (!group.match(rule)) continue;
                 var band = new Rect(0f, y, width, RuleRowHeight);
                 if (Mouse.IsOver(band)) Widgets.DrawHighlight(band);
                 var rowRect = new Rect(12f, y, width - 12f, RuleRowHeight);
@@ -365,12 +378,12 @@ namespace ApparelPolicyBuilder
 
             if (rule.IsPerDef)
             {
-                if (Widgets.ButtonText(Slice(92f), ScopeLabel(rule)))
+                if (Widgets.ButtonText(Slice(106f), ScopeLabel(rule)))
                     OpenScopeMenu(rule);
             }
             else
             {
-                var scopeRect = Slice(92f);
+                var scopeRect = Slice(106f);
                 TooltipHandler.TipRegionByKey(scopeRect, "APB.FacetScopeTip");
                 DrawFaded(scopeRect, "APB.Global".Translate(), TextAnchor.MiddleCenter);
             }
@@ -553,7 +566,7 @@ namespace ApparelPolicyBuilder
                 case RuleAttributeKind.SpecialFilter: rule.specialFilter = opt.specialFilter; break;
             }
             working.rules.Add(rule);
-            collapsedScopes.Remove(null);
+            collapsedScopes.Remove("global");
         }
 
         private static AttributeOption OptionFor(AttributeRule rule) => AttributeCache.OptionFor(rule.attrKey);
@@ -566,19 +579,22 @@ namespace ApparelPolicyBuilder
         }
 
         private string ScopeLabel(AttributeRule rule)
-            => rule.layerScope != null ? rule.layerScope.LabelCap.ToString() : "APB.Global".Translate().ToString();
+            => rule.exceptUtility ? "APB.ScopeExceptUtilityShort".Translate().ToString()
+               : rule.layerScope != null ? rule.layerScope.LabelCap.ToString()
+               : "APB.Global".Translate().ToString();
 
         private void OpenScopeMenu(AttributeRule rule)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("APB.Global".Translate(), () => { rule.layerScope = null; collapsedScopes.Remove(null); })
+                new FloatMenuOption("APB.Global".Translate(), () => { rule.layerScope = null; rule.exceptUtility = false; collapsedScopes.Remove("global"); }),
+                new FloatMenuOption("APB.GlobalExceptUtility".Translate(), () => { rule.layerScope = null; rule.exceptUtility = true; collapsedScopes.Remove("exceptutil"); })
             };
             foreach (ApparelLayerDef layer in AttributeCache.Layers)
             {
                 ApparelLayerDef captured = layer;
-                options.Add(new FloatMenuOption(layer.LabelCap,
-                    () => { rule.layerScope = captured; collapsedScopes.Remove(captured); }));
+                options.Add(new FloatMenuOption(captured.LabelCap,
+                    () => { rule.layerScope = captured; rule.exceptUtility = false; collapsedScopes.Remove("layer:" + captured.defName); }));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }
