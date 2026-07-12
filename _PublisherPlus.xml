@@ -7,6 +7,8 @@
     <exclude>.github</exclude>
     <exclude>.gitignore</exclude>
     <exclude>.vscode</exclude>
+    <exclude>About\ModIcon.psd</exclude>
+    <exclude>About\Preview.psd</exclude>
     <exclude>Apparel Policy Builder.code-workspace</exclude>
     <exclude>ApparelPolicyBuilder.sln</exclude>
     <exclude>Source</exclude>
