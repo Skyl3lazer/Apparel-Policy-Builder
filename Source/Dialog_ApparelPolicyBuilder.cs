@@ -49,7 +49,6 @@ namespace ApparelPolicyBuilder
                 {
                     isFacet = g.Key == null,
                     label = GroupLabel(g.Key),
-                    order = g.Key == null ? int.MaxValue : g.Min(o => o.category?.displayOrder ?? int.MaxValue),
                     options = g.OrderBy(o => o.order).ThenBy(OptionLabel).ToList()
                 })
                 .OrderBy(gr => gr.isFacet).ThenBy(gr => gr.label, StringComparer.OrdinalIgnoreCase)
@@ -206,7 +205,6 @@ namespace ApparelPolicyBuilder
         private class OptionGroup
         {
             public string label;
-            public int order;
             public bool isFacet;
             public List<AttributeOption> options;
         }
