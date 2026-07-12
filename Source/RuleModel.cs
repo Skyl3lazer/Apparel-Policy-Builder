@@ -294,8 +294,11 @@ namespace ApparelPolicyBuilder
         public void ExposeData()
         {
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
-            if (Scribe.mode == LoadSaveMode.LoadingVars && rules == null)
-                rules = new List<AttributeRule>();
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                if (rules == null) rules = new List<AttributeRule>();
+                else rules.RemoveAll(r => r == null || !r.IsValid); // a def a rule points at can vanish when its mod is removed
+            }
         }
     }
 }

@@ -482,7 +482,7 @@ namespace ApparelPolicyBuilder
         private static void RowLabel(Rect rect, string text)
         {
             Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(rect, text.Truncate(rect.width));
+            Widgets.Label(rect, (text ?? "").Truncate(rect.width));
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
