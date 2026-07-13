@@ -2,7 +2,7 @@
 <LanguageData>
 
   <!-- Button on the Apparel Policy screen -->
-  <APB.OpenFilter>Policy Builder</APB.OpenFilter>
+  <APB.OpenFilter>Policy builder</APB.OpenFilter>
   <APB.OpenFilterTip>Open the policy builder to build rules that toggle apparel in this policy by armor, insulation, coverage and other stats.</APB.OpenFilterTip>
 
   <!-- Window -->
@@ -11,15 +11,15 @@
   <APB.OtherCategory>Other</APB.OtherCategory>
   <APB.FacetsGroup>Filters</APB.FacetsGroup>
   <APB.Global>Global</APB.Global>
-  <APB.GlobalExceptUtility>Global Except Utility</APB.GlobalExceptUtility>
-  <APB.UtilityOnly>Utility Only</APB.UtilityOnly>
+  <APB.GlobalExceptUtility>Global except utility</APB.GlobalExceptUtility>
+  <APB.UtilityOnly>Utility only</APB.UtilityOnly>
   <APB.NoRules>No rules yet.\nPick an attribute on the left to add one.</APB.NoRules>
   <APB.Pick>Pick...</APB.Pick>
   <APB.FacetScopeTip>Applies to the whole policy; it can't be limited to a single layer.</APB.FacetScopeTip>
 
   <!-- Filter facets -->
   <APB.Facet.Quality>Quality</APB.Facet.Quality>
-  <APB.Facet.HitPoints>Hit Points</APB.Facet.HitPoints>
+  <APB.Facet.HitPoints>Hit points</APB.Facet.HitPoints>
   <APB.Facet.Material>Material</APB.Facet.Material>
 
   <!-- Polarity -->
@@ -50,7 +50,7 @@
 
   <!-- Documents (named, cross-save library) -->
   <APB.DocumentsTip>Save the current ruleset as a named document, or load and manage saved documents. Documents are shared across all your colonies.</APB.DocumentsTip>
-  <APB.Documents>Rule Documents</APB.Documents>
+  <APB.Documents>Rule documents</APB.Documents>
   <APB.SaveDoc>Save</APB.SaveDoc>
   <APB.SaveDocTip>Save the current ruleset as a document under this name.</APB.SaveDocTip>
   <APB.NoDocuments>No saved documents yet.\nName the current ruleset above and press Save.</APB.NoDocuments>
