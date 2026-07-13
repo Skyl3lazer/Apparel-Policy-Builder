@@ -2,11 +2,14 @@
 <Patch>
 
   <!-- Melee Animation: hip lasso-holster layer is utility. -->
-  <Operation Class="PatchOperationAddModExtension" MayRequire="co.uk.epicguru.meleeanimation">
+  <Operation Class="PatchOperationConditional">
     <xpath>Defs/ApparelLayerDef[defName="AM_Hip"]</xpath>
-    <value>
-      <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
-    </value>
+    <match Class="PatchOperationAddModExtension">
+      <xpath>Defs/ApparelLayerDef[defName="AM_Hip"]</xpath>
+      <value>
+        <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+      </value>
+    </match>
   </Operation>
 
 </Patch>

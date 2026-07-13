@@ -2,11 +2,14 @@
 <Patch>
 
   <!-- Epochs - Golems: waist bag attachment layer is utility. -->
-  <Operation Class="PatchOperationAddModExtension" MayRequire="det.epochsgolems">
+  <Operation Class="PatchOperationConditional">
     <xpath>Defs/ApparelLayerDef[defName="DV_ShellAttachment"]</xpath>
-    <value>
-      <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
-    </value>
+    <match Class="PatchOperationAddModExtension">
+      <xpath>Defs/ApparelLayerDef[defName="DV_ShellAttachment"]</xpath>
+      <value>
+        <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+      </value>
+    </match>
   </Operation>
 
 </Patch>

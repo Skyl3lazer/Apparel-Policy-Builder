@@ -2,11 +2,14 @@
 <Patch>
 
   <!-- Capes and Armor: the 'Cape' over-layer is utility; the fitted 'Armor_Cape' layer is intentionally left as normal armor. -->
-  <Operation Class="PatchOperationAddModExtension" MayRequire="Yy.CapesandArmor">
+  <Operation Class="PatchOperationConditional">
     <xpath>Defs/ApparelLayerDef[defName="Cape"]</xpath>
-    <value>
-      <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
-    </value>
+    <match Class="PatchOperationAddModExtension">
+      <xpath>Defs/ApparelLayerDef[defName="Cape"]</xpath>
+      <value>
+        <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+      </value>
+    </match>
   </Operation>
 
 </Patch>
