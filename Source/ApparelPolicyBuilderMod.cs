@@ -117,6 +117,8 @@ namespace ApparelPolicyBuilder
 
                 foreach (ApparelLayerDef layer in g.layers)
                 {
+                    var band = new Rect(0f, y, viewRect.width, rowH);
+                    if (Mouse.IsOver(band)) Widgets.DrawHighlight(band);
                     var rowRect = new Rect(12f, y, viewRect.width - 12f, rowH);
                     bool shippedDefault = layer.HasModExtension<UtilityLayerExtension>();
                     bool current = overrides.TryGetValue(layer.defName, out bool forced) ? forced : shippedDefault;
