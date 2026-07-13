@@ -108,14 +108,22 @@ namespace ApparelPolicyBuilder
         }
 
         private static HashSet<ApparelLayerDef> utilityLayers;
+
+        internal static void InvalidateUtilityLayers() => utilityLayers = null;
+
         private static HashSet<ApparelLayerDef> UtilityLayers
         {
             get
             {
                 if (utilityLayers != null) return utilityLayers;
                 utilityLayers = new HashSet<ApparelLayerDef>();
+                Dictionary<string, bool> overrides = ApparelPolicyBuilderMod.LayerUtilityOverrides;
                 foreach (ApparelLayerDef layer in DefDatabase<ApparelLayerDef>.AllDefsListForReading)
-                    if (layer.HasModExtension<UtilityLayerExtension>()) utilityLayers.Add(layer);
+                {
+                    bool util = layer.HasModExtension<UtilityLayerExtension>();
+                    if (overrides.TryGetValue(layer.defName, out bool forced)) util = forced;
+                    if (util) utilityLayers.Add(layer);
+                }
                 return utilityLayers;
             }
         }

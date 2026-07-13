@@ -59,7 +59,14 @@
   <APB.DiscardConfirm>Discard the current rules and replace them with the pasted ruleset?</APB.DiscardConfirm>
   <APB.DiscardLoadConfirm>Discard the current rules and load '{0}'?</APB.DiscardLoadConfirm>
   <APB.SkippedRules>Skipped {0} rule(s) that reference content not in this modlist.</APB.SkippedRules>
-  <APB.SettingsNote>Rule documents are created and managed from the Policy Builder window, reachable from any Apparel Policy.</APB.SettingsNote>
+  <!-- Mod settings: utility layers -->
+  <APB.Settings.UtilityNote>Choose which apparel layers count as "utility". Utility layers are skipped by "Global except utility" rules and targeted by "Utility only" rules. Checked means utility; a '*' marks a layer you have changed from its default.</APB.Settings.UtilityNote>
+  <APB.Settings.ResetAll>Reset all to defaults</APB.Settings.ResetAll>
+  <APB.Settings.ResetConfirm>Reset all utility-layer changes back to their defaults?</APB.Settings.ResetConfirm>
+  <APB.Settings.Vanilla>Vanilla</APB.Settings.Vanilla>
+  <APB.Settings.DLC>DLC</APB.Settings.DLC>
+  <APB.Settings.DefaultUtility>Default: utility</APB.Settings.DefaultUtility>
+  <APB.Settings.DefaultNormal>Default: normal</APB.Settings.DefaultNormal>
 
   <!-- Stuffable evaluation lens -->
   <APB.EvalAs>Evaluate stuffables as:</APB.EvalAs>
