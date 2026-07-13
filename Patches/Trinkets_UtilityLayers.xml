@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+
+  <!-- Bundle of Trinkets: neck-trinket layer is utility. -->
+  <Operation Class="PatchOperationAddModExtension" MayRequire="Seti.Medieval.Trinkets">
+    <xpath>Defs/ApparelLayerDef[defName="Seti_TrinketLayer"]</xpath>
+    <value>
+      <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+    </value>
+  </Operation>
+
+</Patch>

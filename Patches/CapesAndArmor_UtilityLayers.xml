@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+
+  <!-- Capes and Armor: the 'Cape' over-layer is utility; the fitted 'Armor_Cape' layer is intentionally left as normal armor. -->
+  <Operation Class="PatchOperationAddModExtension" MayRequire="Yy.CapesandArmor">
+    <xpath>Defs/ApparelLayerDef[defName="Cape"]</xpath>
+    <value>
+      <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+    </value>
+  </Operation>
+
+</Patch>

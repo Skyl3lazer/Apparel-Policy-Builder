@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Patch>
+
+  <!-- Security Clearance: ID keycard layers are utility. -->
+  <Operation Class="PatchOperationSequence" MayRequire="7f.SecurityClearance">
+    <operations>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="SecurityClearanceKeycardLayer"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="SecurityClearanceKeycardLayerTheta"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="SecurityClearanceKeycardLayerLambda"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="SecurityClearanceKeycardLayerTau"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+      <li Class="PatchOperationAddModExtension">
+        <xpath>Defs/ApparelLayerDef[defName="SecurityClearanceKeycardLayerPhi"]</xpath>
+        <value>
+          <li Class="ApparelPolicyBuilder.UtilityLayerExtension" />
+        </value>
+      </li>
+    </operations>
+  </Operation>
+
+</Patch>
