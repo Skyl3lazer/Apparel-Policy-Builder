@@ -15,6 +15,8 @@ namespace ApparelPolicyBuilder
         private Action pendingTreeOp;
         private readonly Dictionary<Condition, string> condBuffers = new Dictionary<Condition, string>();
 
+        private const float IndentStep = 16f;
+
         private static bool IsPerDefOption(AttributeOption opt)
             => opt.kind == RuleAttributeKind.Numeric || opt.kind == RuleAttributeKind.Categorical;
 
@@ -108,7 +110,8 @@ namespace ApparelPolicyBuilder
         {
             var band = new Rect(0f, y, width, RuleRowHeight);
             if (Mouse.IsOver(band)) Widgets.DrawHighlight(band);
-            float indent = 12f + depth * 16f;
+            DrawDepthGuides(band.y, depth);
+            float indent = 12f + depth * IndentStep;
             var row = new Rect(indent, y, width - indent - 2f, RuleRowHeight);
 
             switch (node)
@@ -118,7 +121,8 @@ namespace ApparelPolicyBuilder
                     y += RuleRowHeight;
                     if (g.children.Count == 0)
                     {
-                        DrawFaded(new Rect(indent + 18f, y, width - indent - 22f, RuleRowHeight), "APB.EmptyGroup".Translate(), TextAnchor.MiddleLeft);
+                        DrawDepthGuides(y, depth + 1);
+                        DrawFaded(new Rect(indent + IndentStep + 2f, y, width - indent - IndentStep - 6f, RuleRowHeight), "APB.EmptyGroup".Translate(), TextAnchor.MiddleLeft);
                         y += RuleRowHeight;
                     }
                     else
@@ -208,6 +212,16 @@ namespace ApparelPolicyBuilder
             if (deleteSelf == null) return;
             var delRect = new Rect(row.xMax - 24f, row.y + (row.height - 24f) / 2f, 24f, 24f);
             if (Widgets.ButtonImage(delRect, TexButton.Delete)) pendingTreeOp = deleteSelf;
+        }
+
+        private static void DrawDepthGuides(float yTop, int depth)
+        {
+            if (depth <= 0) return;
+            Color prev = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.18f);
+            for (int i = 0; i < depth; i++)
+                Widgets.DrawLineVertical(12f + i * IndentStep + 6f, yTop, RuleRowHeight);
+            GUI.color = prev;
         }
 
         private void DrawCondThreshold(Rect rect, Condition c)
