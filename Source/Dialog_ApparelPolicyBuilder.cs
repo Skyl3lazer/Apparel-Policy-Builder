@@ -286,7 +286,7 @@ namespace ApparelPolicyBuilder
                     viewHeight += working.rules.Count(g.match) * RuleRowHeight;
             }
             viewHeight += ExpressionsSectionHeight();
-            if (working.IsEmpty) viewHeight += RuleRowHeight; // room for the empty hint
+            if (working.IsEmpty) viewHeight += RuleRowHeight;
 
             var viewRect = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(viewHeight, inner.height));
             Widgets.BeginScrollView(inner, ref rightScroll, viewRect);

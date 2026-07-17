@@ -25,7 +25,6 @@ namespace ApparelPolicyBuilder
         }
     }
 
-    // A per-def predicate with no polarity and no scope: the leaf of an Expression.
     public class Condition : IExposable
     {
         public RuleAttributeKind kind = RuleAttributeKind.Numeric; // Numeric or Categorical only
@@ -102,7 +101,6 @@ namespace ApparelPolicyBuilder
         public override void ExposeData() => Scribe_Deep.Look(ref child, "child");
     }
 
-    // A container combining its children with AND (all of) or OR (any of); the flag makes toggling a one-line flip.
     public class GroupExpr : Expression
     {
         public bool any; // false = AND (all of), true = OR (any of)
@@ -139,7 +137,6 @@ namespace ApparelPolicyBuilder
         }
     }
 
-    // A clause pairing one scope with one Expression; disqualifies an in-scope piece whose Expression is false.
     public class ExpressionRule : IExposable
     {
         public ApparelLayerDef layerScope; // null = Global

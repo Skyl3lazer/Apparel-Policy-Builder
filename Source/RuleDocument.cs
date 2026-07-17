@@ -77,7 +77,7 @@ namespace ApparelPolicyBuilder
 
     public enum ExprNodeKind : byte { Condition, Group, Not }
 
-    // The whole Expression tree serialized as one uniform node; the only def reference anywhere in it is a Condition's stat, held by defName.
+    // The only def reference in the tree is a Condition's stat, held by defName so a document survives a referenced mod being toggled off then on.
     public class PortableExpr : IExposable
     {
         public ExprNodeKind nodeKind;
