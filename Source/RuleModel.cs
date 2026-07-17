@@ -94,17 +94,7 @@ namespace ApparelPolicyBuilder
                 return info.HasCategorical(attrKey, categoricalValue);
 
             if (stat == null) return false;
-            float v = info.GetStatValue(stat, evalStuff);
-            switch (numericMode)
-            {
-                case NumericMode.Positive: return v > 0f;
-                case NumericMode.Negative: return v < 0f;
-                case NumericMode.None: return v == 0f;
-                case NumericMode.GreaterThan: return v > threshold;
-                case NumericMode.LessThan: return v < threshold;
-                case NumericMode.EqualTo: return Mathf.Approximately(v, threshold);
-                default: return false;
-            }
+            return ConditionEval.NumericMatches(numericMode, info.GetStatValue(stat, evalStuff), threshold);
         }
 
         private static HashSet<ApparelLayerDef> utilityLayers;
@@ -129,6 +119,9 @@ namespace ApparelPolicyBuilder
         }
 
         public bool InScope(ApparelAttributeInfo info)
+            => IsInScope(layerScope, exceptUtility, utilityOnly, info);
+
+        internal static bool IsInScope(ApparelLayerDef layerScope, bool exceptUtility, bool utilityOnly, ApparelAttributeInfo info)
         {
             if (utilityOnly) return UtilityLayers.Overlaps(info.Layers);
             if (exceptUtility) return !UtilityLayers.Overlaps(info.Layers);
@@ -157,13 +150,15 @@ namespace ApparelPolicyBuilder
     public class Ruleset : IExposable
     {
         public List<AttributeRule> rules = new List<AttributeRule>();
+        public List<ExpressionRule> expressionRules = new List<ExpressionRule>();
 
-        public bool IsEmpty => rules.Count == 0;
+        public bool IsEmpty => rules.Count == 0 && expressionRules.Count == 0;
 
         public Ruleset Clone()
         {
             var copy = new Ruleset();
             foreach (AttributeRule r in rules) copy.rules.Add(r.Clone());
+            foreach (ExpressionRule e in expressionRules) copy.expressionRules.Add(e.Clone());
             return copy;
         }
 
@@ -181,6 +176,12 @@ namespace ApparelPolicyBuilder
                     if (!rule.IsPerDef || IsStuffCategoryForbid(rule)) continue;
                     if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
+                if (allow)
+                    for (int i = 0; i < expressionRules.Count; i++)
+                    {
+                        ExpressionRule er = expressionRules[i];
+                        if (er.IsValid && er.Disqualifies(info, evalStuff)) { allow = false; break; }
+                    }
                 filter.SetAllow(info.def, allow);
             }
 
@@ -302,10 +303,14 @@ namespace ApparelPolicyBuilder
         public void ExposeData()
         {
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
+            Scribe_Collections.Look(ref expressionRules, "expressionRules", LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 if (rules == null) rules = new List<AttributeRule>();
                 else rules.RemoveAll(r => r == null || !r.IsValid); // a def a rule points at can vanish when its mod is removed
+
+                if (expressionRules == null) expressionRules = new List<ExpressionRule>();
+                else expressionRules.RemoveAll(e => e == null || !e.IsValid);
             }
         }
     }

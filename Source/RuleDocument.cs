@@ -75,10 +75,148 @@ namespace ApparelPolicyBuilder
         }
     }
 
+    public enum ExprNodeKind : byte { Condition, Group, Not }
+
+    // The whole Expression tree serialized as one uniform node; the only def reference anywhere in it is a Condition's stat, held by defName.
+    public class PortableExpr : IExposable
+    {
+        public ExprNodeKind nodeKind;
+        public bool any;
+        public RuleAttributeKind kind = RuleAttributeKind.Numeric;
+        public NumericMode numericMode = NumericMode.Positive;
+        public float threshold;
+        public string attrKey;
+        public string categoricalValue;
+        public string stat;
+        public List<PortableExpr> children = new List<PortableExpr>();
+
+        public static PortableExpr From(Expression e)
+        {
+            switch (e)
+            {
+                case ConditionExpr ce:
+                    Condition c = ce.condition;
+                    return new PortableExpr
+                    {
+                        nodeKind = ExprNodeKind.Condition,
+                        kind = c.kind, numericMode = c.numericMode, threshold = c.threshold,
+                        attrKey = c.attrKey, categoricalValue = c.categoricalValue, stat = c.stat?.defName
+                    };
+                case NotExpr ne:
+                    var not = new PortableExpr { nodeKind = ExprNodeKind.Not };
+                    if (ne.child != null) not.children.Add(From(ne.child));
+                    return not;
+                case GroupExpr ge:
+                    var g = new PortableExpr { nodeKind = ExprNodeKind.Group, any = ge.any };
+                    foreach (Expression child in ge.children)
+                        if (child != null) g.children.Add(From(child));
+                    return g;
+                default:
+                    return null;
+            }
+        }
+
+        // Fails when any def the tree needs is absent, so the caller drops the whole Expression Rule.
+        public bool TryResolve(out Expression expr)
+        {
+            expr = null;
+            switch (nodeKind)
+            {
+                case ExprNodeKind.Condition:
+                    var cond = new Condition
+                    {
+                        kind = kind, numericMode = numericMode, threshold = threshold,
+                        attrKey = attrKey, categoricalValue = categoricalValue
+                    };
+                    if (kind == RuleAttributeKind.Categorical)
+                    {
+                        if (attrKey.NullOrEmpty() || categoricalValue == null) return false;
+                        if (AttributeCache.Options != null && AttributeCache.OptionFor(attrKey) == null) return false;
+                    }
+                    else
+                    {
+                        cond.stat = DefDatabase<StatDef>.GetNamedSilentFail(stat);
+                        if (cond.stat == null) return false;
+                    }
+                    expr = new ConditionExpr { condition = cond };
+                    return true;
+                case ExprNodeKind.Not:
+                    if (children.Count == 0 || !children[0].TryResolve(out Expression childExpr)) return false;
+                    expr = new NotExpr { child = childExpr };
+                    return true;
+                default:
+                    if (children.Count == 0) return false;
+                    var g = new GroupExpr { any = any };
+                    foreach (PortableExpr pc in children)
+                    {
+                        if (!pc.TryResolve(out Expression ce)) return false;
+                        g.children.Add(ce);
+                    }
+                    expr = g;
+                    return true;
+            }
+        }
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref nodeKind, "nodeKind", ExprNodeKind.Condition);
+            Scribe_Values.Look(ref any, "any", false);
+            Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
+            Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Positive);
+            Scribe_Values.Look(ref threshold, "threshold", 0f);
+            Scribe_Values.Look(ref attrKey, "attrKey");
+            Scribe_Values.Look(ref categoricalValue, "categoricalValue");
+            Scribe_Values.Look(ref stat, "stat");
+            Scribe_Collections.Look(ref children, "children", LookMode.Deep);
+            if (Scribe.mode == LoadSaveMode.LoadingVars && children == null)
+                children = new List<PortableExpr>();
+        }
+    }
+
+    public class PortableExpressionRule : IExposable
+    {
+        public string layerScope;
+        public bool exceptUtility;
+        public bool utilityOnly;
+        public PortableExpr root;
+
+        public static PortableExpressionRule From(ExpressionRule e) => new PortableExpressionRule
+        {
+            layerScope = e.layerScope?.defName,
+            exceptUtility = e.exceptUtility,
+            utilityOnly = e.utilityOnly,
+            root = e.root != null ? PortableExpr.From(e.root) : null
+        };
+
+        public bool TryResolve(out ExpressionRule rule)
+        {
+            rule = null;
+            ApparelLayerDef layer = null;
+            if (!layerScope.NullOrEmpty())
+            {
+                layer = DefDatabase<ApparelLayerDef>.GetNamedSilentFail(layerScope);
+                if (layer == null) return false;
+            }
+            if (root == null || !root.TryResolve(out Expression expr)) return false;
+
+            rule = new ExpressionRule { layerScope = layer, exceptUtility = exceptUtility, utilityOnly = utilityOnly, root = expr };
+            return rule.IsValid;
+        }
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref layerScope, "layerScope");
+            Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
+            Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
+            Scribe_Deep.Look(ref root, "root");
+        }
+    }
+
     public class RuleDocument : IExposable
     {
         public string name;
         public List<PortableRule> rules = new List<PortableRule>();
+        public List<PortableExpressionRule> expressionRules = new List<PortableExpressionRule>();
 
         public RuleDocument() { }
 
@@ -86,6 +224,7 @@ namespace ApparelPolicyBuilder
         {
             var doc = new RuleDocument { name = name };
             foreach (AttributeRule r in rs.rules) doc.rules.Add(PortableRule.From(r));
+            foreach (ExpressionRule e in rs.expressionRules) doc.expressionRules.Add(PortableExpressionRule.From(e));
             return doc;
         }
 
@@ -98,6 +237,11 @@ namespace ApparelPolicyBuilder
                 if (pr.TryResolve(out AttributeRule r)) rs.rules.Add(r);
                 else skipped++;
             }
+            foreach (PortableExpressionRule pe in expressionRules)
+            {
+                if (pe.TryResolve(out ExpressionRule e)) rs.expressionRules.Add(e);
+                else skipped++;
+            }
             return rs;
         }
 
@@ -105,8 +249,12 @@ namespace ApparelPolicyBuilder
         {
             Scribe_Values.Look(ref name, "name");
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
-            if (Scribe.mode == LoadSaveMode.LoadingVars && rules == null)
-                rules = new List<PortableRule>();
+            Scribe_Collections.Look(ref expressionRules, "expressionRules", LookMode.Deep);
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                if (rules == null) rules = new List<PortableRule>();
+                if (expressionRules == null) expressionRules = new List<PortableExpressionRule>();
+            }
         }
     }
 }

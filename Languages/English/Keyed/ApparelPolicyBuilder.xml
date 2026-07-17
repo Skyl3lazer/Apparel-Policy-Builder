@@ -17,6 +17,22 @@
   <APB.Pick>Pick...</APB.Pick>
   <APB.FacetScopeTip>Applies to the whole policy; it can't be limited to a single layer.</APB.FacetScopeTip>
 
+  <!-- Expression rules (boolean AND/OR/NOT over conditions) -->
+  <APB.Expressions>Expressions</APB.Expressions>
+  <APB.NewExpression>+ Expression</APB.NewExpression>
+  <APB.NewExpressionTip>Add an expression rule: an "any of / all of" combination of conditions, so you can say things like "move speed &gt; 0 unless armor &gt; 2". A piece is disallowed when the expression is false for it.</APB.NewExpressionTip>
+  <APB.ExprScopeTip>Which apparel this whole expression is evaluated against.</APB.ExprScopeTip>
+  <APB.AnyOf>Any of</APB.AnyOf>
+  <APB.AllOf>All of</APB.AllOf>
+  <APB.Not>Not</APB.Not>
+  <APB.EmptyGroup>(empty - press + to add a condition)</APB.EmptyGroup>
+  <APB.AddCondition>Condition...</APB.AddCondition>
+  <APB.AddAllGroup>Group: all of</APB.AddAllGroup>
+  <APB.AddAnyGroup>Group: any of</APB.AddAnyGroup>
+  <APB.AddNot>Not</APB.AddNot>
+  <APB.PickForExpression>Pick an attribute to add as a condition.</APB.PickForExpression>
+  <APB.CancelPick>Cancel</APB.CancelPick>
+
   <!-- Filter facets -->
   <APB.Facet.Quality>Quality</APB.Facet.Quality>
   <APB.Facet.HitPoints>Hit points</APB.Facet.HitPoints>
