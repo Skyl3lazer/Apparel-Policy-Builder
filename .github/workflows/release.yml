@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
-            echo "Release ${{ steps.meta.outputs.tag }} already exists — nothing to do."
+            echo "Release ${{ steps.meta.outputs.tag }} already exists - nothing to do."
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
