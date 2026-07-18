@@ -277,6 +277,7 @@ namespace ApparelPolicyBuilder
             var inner = rect.ContractedBy(6f);
 
             List<ScopeGroup> groups = working.rules.Count > 0 ? ScopeGroups() : new List<ScopeGroup>();
+            float expressionsGap = groups.Count > 0 ? 10f : 0f;
 
             float viewHeight = 0f;
             foreach (ScopeGroup g in groups)
@@ -285,7 +286,7 @@ namespace ApparelPolicyBuilder
                 if (!collapsedScopes.Contains(g.key))
                     viewHeight += working.rules.Count(g.match) * RuleRowHeight;
             }
-            viewHeight += ExpressionsSectionHeight();
+            viewHeight += expressionsGap + ExpressionsSectionHeight();
             if (working.IsEmpty) viewHeight += RuleRowHeight;
 
             var viewRect = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(viewHeight, inner.height));
@@ -303,6 +304,7 @@ namespace ApparelPolicyBuilder
                 y += RuleRowHeight;
             }
 
+            y += expressionsGap;
             DrawExpressionsSection(viewRect.width, ref y);
 
             Widgets.EndScrollView();

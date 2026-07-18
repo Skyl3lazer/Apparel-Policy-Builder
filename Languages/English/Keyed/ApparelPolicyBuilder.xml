@@ -6,7 +6,7 @@
   <APB.OpenFilterTip>Open the policy builder to build rules that toggle apparel in this policy by armor, insulation, coverage and other stats.</APB.OpenFilterTip>
 
   <!-- Window -->
-  <APB.Title>Apparel Policy Builder</APB.Title>
+  <APB.Title>Apparel policy builder</APB.Title>
   <APB.SearchHint>Search attributes...</APB.SearchHint>
   <APB.OtherCategory>Other</APB.OtherCategory>
   <APB.FacetsGroup>Filters</APB.FacetsGroup>
@@ -19,7 +19,6 @@
 
   <!-- Expression rules (boolean AND/OR/NOT over conditions) -->
   <APB.Expressions>Expressions</APB.Expressions>
-  <APB.NewExpression>+ Expression</APB.NewExpression>
   <APB.NewExpressionTip>Add an expression rule: an "any of / all of" combination of conditions, so you can say things like "move speed &gt; 0 unless armor &gt; 2". A piece is disallowed when the expression is false for it.</APB.NewExpressionTip>
   <APB.ExprScopeTip>Which apparel this whole expression is evaluated against.</APB.ExprScopeTip>
   <APB.AnyOf>Any of</APB.AnyOf>
