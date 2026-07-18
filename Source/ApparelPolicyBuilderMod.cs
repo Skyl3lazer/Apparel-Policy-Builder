@@ -10,11 +10,13 @@ namespace ApparelPolicyBuilder
     {
         public List<RuleDocument> documents = new List<RuleDocument>();
         public Dictionary<string, bool> layerUtilityOverrides = new Dictionary<string, bool>();
+        public bool advancedExpressions;
 
         public override void ExposeData()
         {
             Scribe_Collections.Look(ref documents, "documents", LookMode.Deep);
             Scribe_Collections.Look(ref layerUtilityOverrides, "layerUtilityOverrides", LookMode.Value, LookMode.Value);
+            Scribe_Values.Look(ref advancedExpressions, "advancedExpressions", false);
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 if (documents == null) documents = new List<RuleDocument>();
@@ -48,6 +50,9 @@ namespace ApparelPolicyBuilder
         public static Dictionary<string, bool> LayerUtilityOverrides
             => instance?.settings.layerUtilityOverrides ?? noOverrides;
 
+        public static bool AdvancedExpressions
+            => instance?.settings.advancedExpressions ?? false;
+
         public static List<RuleDocument> Documents
             => instance?.settings.documents ?? new List<RuleDocument>();
 
@@ -80,8 +85,37 @@ namespace ApparelPolicyBuilder
         {
             AttributeCache.EnsureBuilt();
             Dictionary<string, bool> overrides = settings.layerUtilityOverrides;
+            float y = inRect.y;
 
-            var noteRect = new Rect(inRect.x, inRect.y, inRect.width, 44f);
+            var advHeader = new Rect(inRect.x, y, inRect.width, 30f);
+            using (new TextBlock(GameFont.Medium))
+                Widgets.Label(advHeader, "APB.Settings.AdvancedHeader".Translate());
+            y = advHeader.yMax + 2f;
+
+            var advRow = new Rect(inRect.x, y, inRect.width, 24f);
+            bool adv = settings.advancedExpressions;
+            Widgets.CheckboxLabeled(advRow, "APB.Settings.AdvancedExpressions".Translate(), ref adv);
+            settings.advancedExpressions = adv;
+            y = advRow.yMax + 2f;
+
+            Color descPrev = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.6f);
+            var descRect = new Rect(inRect.x, y, inRect.width, 40f);
+            Widgets.Label(descRect, "APB.Settings.AdvancedExpressionsDesc".Translate());
+            GUI.color = descPrev;
+            y = descRect.yMax + 8f;
+
+            Color linePrev = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.2f);
+            Widgets.DrawLineHorizontal(inRect.x, y, inRect.width);
+            GUI.color = linePrev;
+            y += 10f;
+
+            using (new TextBlock(GameFont.Medium))
+                Widgets.Label(new Rect(inRect.x, y, inRect.width, 30f), "APB.Settings.UtilityHeader".Translate());
+            y += 32f;
+
+            var noteRect = new Rect(inRect.x, y, inRect.width, 44f);
             Widgets.Label(noteRect, "APB.Settings.UtilityNote".Translate());
 
             const float resetW = 190f, resetH = 30f;

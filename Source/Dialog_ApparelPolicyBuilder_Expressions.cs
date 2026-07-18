@@ -42,9 +42,9 @@ namespace ApparelPolicyBuilder
 
         // ---- Layout measurement ----
 
-        private float ExpressionsSectionHeight()
+        private float ExpressionsSectionHeight(bool advanced)
         {
-            float h = HeaderHeight;
+            float h = advanced ? HeaderHeight : 0f;
             foreach (ExpressionRule er in working.expressionRules)
                 h += RuleRowHeight + MeasureExpr(er.root) * RuleRowHeight + 6f;
             return h;
@@ -68,20 +68,23 @@ namespace ApparelPolicyBuilder
 
         // ---- Section + cards ----
 
-        private void DrawExpressionsSection(float width, ref float y)
+        private void DrawExpressionsSection(float width, ref float y, bool advanced)
         {
-            var header = new Rect(0f, y, width, HeaderHeight);
-            string exprLabel = "APB.Expressions".Translate();
-            float labelW = Text.CalcSize(exprLabel).x;
-            Color prev = GUI.color;
-            GUI.color = new Color(0.8f, 0.8f, 0.8f);
-            Widgets.Label(new Rect(header.x + 4f, header.y, labelW + 2f, header.height), exprLabel);
-            GUI.color = prev;
-            var newRect = new Rect(header.x + 4f + labelW + 8f, header.y + 2f, 28f, HeaderHeight - 4f);
-            TooltipHandler.TipRegionByKey(newRect, "APB.NewExpressionTip");
-            if (Widgets.ButtonText(newRect, "+"))
-                working.expressionRules.Add(new ExpressionRule { root = new GroupExpr { any = true } });
-            y += HeaderHeight;
+            if (advanced)
+            {
+                var header = new Rect(0f, y, width, HeaderHeight);
+                string exprLabel = "APB.Expressions".Translate();
+                float labelW = Text.CalcSize(exprLabel).x;
+                Color prev = GUI.color;
+                GUI.color = new Color(0.8f, 0.8f, 0.8f);
+                Widgets.Label(new Rect(header.x + 4f, header.y, labelW + 2f, header.height), exprLabel);
+                GUI.color = prev;
+                var newRect = new Rect(header.x + 4f + labelW + 8f, header.y + 2f, 28f, HeaderHeight - 4f);
+                TooltipHandler.TipRegionByKey(newRect, "APB.NewExpressionTip");
+                if (Widgets.ButtonText(newRect, "+"))
+                    working.expressionRules.Add(new ExpressionRule { root = new GroupExpr { any = true } });
+                y += HeaderHeight;
+            }
 
             foreach (ExpressionRule er in working.expressionRules)
             {

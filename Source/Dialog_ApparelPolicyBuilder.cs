@@ -276,8 +276,17 @@ namespace ApparelPolicyBuilder
             Widgets.DrawMenuSection(rect);
             var inner = rect.ContractedBy(6f);
 
+            bool advanced = ApparelPolicyBuilderMod.AdvancedExpressions;
+            float contentWidth = inner.width - 16f;
+
             List<ScopeGroup> groups = working.rules.Count > 0 ? ScopeGroups() : new List<ScopeGroup>();
-            float expressionsGap = groups.Count > 0 ? 10f : 0f;
+            bool hasExprSection = advanced || working.expressionRules.Count > 0;
+            float expressionsGap = groups.Count > 0 && hasExprSection ? 10f : 0f;
+
+            string emptyText = working.IsEmpty
+                ? "APB.NoRules".Translate() + "\n" + (advanced ? "APB.NoRulesExpression" : "APB.NoRulesAdvancedHint").Translate()
+                : null;
+            float emptyHeight = emptyText != null ? Text.CalcHeight(emptyText, contentWidth) : 0f;
 
             float viewHeight = 0f;
             foreach (ScopeGroup g in groups)
@@ -286,10 +295,9 @@ namespace ApparelPolicyBuilder
                 if (!collapsedScopes.Contains(g.key))
                     viewHeight += working.rules.Count(g.match) * RuleRowHeight;
             }
-            viewHeight += expressionsGap + ExpressionsSectionHeight();
-            if (working.IsEmpty) viewHeight += RuleRowHeight;
+            viewHeight += emptyHeight + expressionsGap + ExpressionsSectionHeight(advanced);
 
-            var viewRect = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(viewHeight, inner.height));
+            var viewRect = new Rect(0f, 0f, contentWidth, Mathf.Max(viewHeight, inner.height));
             Widgets.BeginScrollView(inner, ref rightScroll, viewRect);
             float y = 0f;
             AttributeRule toDelete = null;
@@ -298,14 +306,14 @@ namespace ApparelPolicyBuilder
             foreach (ScopeGroup g in groups)
                 DrawScopeGroup(g, viewRect.width, ref y, ref toDelete);
 
-            if (working.IsEmpty)
+            if (emptyText != null)
             {
-                DrawFaded(new Rect(0f, y, viewRect.width, RuleRowHeight), "APB.NoRules".Translate(), TextAnchor.MiddleLeft);
-                y += RuleRowHeight;
+                DrawFaded(new Rect(0f, y, viewRect.width, emptyHeight), emptyText, TextAnchor.UpperLeft);
+                y += emptyHeight;
             }
 
             y += expressionsGap;
-            DrawExpressionsSection(viewRect.width, ref y);
+            DrawExpressionsSection(viewRect.width, ref y, advanced);
 
             Widgets.EndScrollView();
 
