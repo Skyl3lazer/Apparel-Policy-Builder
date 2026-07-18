@@ -13,7 +13,7 @@
   <APB.Global>Global</APB.Global>
   <APB.GlobalExceptUtility>Global except utility</APB.GlobalExceptUtility>
   <APB.UtilityOnly>Utility only</APB.UtilityOnly>
-  <APB.NoRules>No rules yet.\nPick an attribute on the left to add one.</APB.NoRules>
+  <APB.NoRules>No rules yet.\nPick an attribute on the left to add one, or create an expression to hold complex rules.</APB.NoRules>
   <APB.Pick>Pick...</APB.Pick>
   <APB.FacetScopeTip>Applies to the whole policy; it can't be limited to a single layer.</APB.FacetScopeTip>
 
