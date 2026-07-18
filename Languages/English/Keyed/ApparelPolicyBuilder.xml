@@ -6,7 +6,7 @@
   <APB.OpenFilterTip>Open the policy builder to build rules that toggle apparel in this policy by armor, insulation, coverage and other stats.</APB.OpenFilterTip>
 
   <!-- Window -->
-  <APB.Title>Apparel Policy Builder</APB.Title>
+  <APB.Title>Apparel policy builder</APB.Title>
   <APB.SearchHint>Search attributes...</APB.SearchHint>
   <APB.OtherCategory>Other</APB.OtherCategory>
   <APB.FacetsGroup>Filters</APB.FacetsGroup>
@@ -14,8 +14,25 @@
   <APB.GlobalExceptUtility>Global except utility</APB.GlobalExceptUtility>
   <APB.UtilityOnly>Utility only</APB.UtilityOnly>
   <APB.NoRules>No rules yet.\nPick an attribute on the left to add one.</APB.NoRules>
+  <APB.NoRulesExpression>Or create an expression to hold complex rules.</APB.NoRulesExpression>
+  <APB.NoRulesAdvancedHint>Enable advanced expressions in the mod settings to create more complex statements.</APB.NoRulesAdvancedHint>
   <APB.Pick>Pick...</APB.Pick>
   <APB.FacetScopeTip>Applies to the whole policy; it can't be limited to a single layer.</APB.FacetScopeTip>
+
+  <!-- Expression rules (boolean AND/OR/NOT over conditions) -->
+  <APB.Expressions>Expressions</APB.Expressions>
+  <APB.NewExpressionTip>Add an expression rule: an "any of / all of" combination of conditions, so you can say things like "move speed &gt; 0 unless armor &gt; 2". A piece is disallowed when the expression is false for it.</APB.NewExpressionTip>
+  <APB.ExprScopeTip>Which apparel this whole expression is evaluated against.</APB.ExprScopeTip>
+  <APB.AnyOf>Any of</APB.AnyOf>
+  <APB.AllOf>All of</APB.AllOf>
+  <APB.Not>Not</APB.Not>
+  <APB.EmptyGroup>(empty - press + to add a condition)</APB.EmptyGroup>
+  <APB.AddCondition>Condition...</APB.AddCondition>
+  <APB.AddAllGroup>Group: all of</APB.AddAllGroup>
+  <APB.AddAnyGroup>Group: any of</APB.AddAnyGroup>
+  <APB.AddNot>Not</APB.AddNot>
+  <APB.PickForExpression>Pick an attribute to add as a condition.</APB.PickForExpression>
+  <APB.CancelPick>Cancel</APB.CancelPick>
 
   <!-- Filter facets -->
   <APB.Facet.Quality>Quality</APB.Facet.Quality>
@@ -59,7 +76,13 @@
   <APB.DiscardConfirm>Discard the current rules and replace them with the pasted ruleset?</APB.DiscardConfirm>
   <APB.DiscardLoadConfirm>Discard the current rules and load '{0}'?</APB.DiscardLoadConfirm>
   <APB.SkippedRules>Skipped {0} rule(s) that reference content not in this modlist.</APB.SkippedRules>
+  <!-- Mod settings: advanced expressions -->
+  <APB.Settings.AdvancedHeader>Advanced expressions</APB.Settings.AdvancedHeader>
+  <APB.Settings.AdvancedExpressions>Enable advanced expressions</APB.Settings.AdvancedExpressions>
+  <APB.Settings.AdvancedExpressionsDesc>Show the expression builder in the policy window, letting you combine conditions with any of / all of / not. Existing expressions keep applying when this is off.</APB.Settings.AdvancedExpressionsDesc>
+
   <!-- Mod settings: utility layers -->
+  <APB.Settings.UtilityHeader>Utility layers</APB.Settings.UtilityHeader>
   <APB.Settings.UtilityNote>Choose which apparel layers count as "utility". Utility layers are skipped by "Global except utility" rules and targeted by "Utility only" rules. Checked means utility; a '*' marks a layer you have changed from its default.</APB.Settings.UtilityNote>
   <APB.Settings.ResetAll>Reset all to defaults</APB.Settings.ResetAll>
   <APB.Settings.ResetConfirm>Reset all utility-layer changes back to their defaults?</APB.Settings.ResetConfirm>

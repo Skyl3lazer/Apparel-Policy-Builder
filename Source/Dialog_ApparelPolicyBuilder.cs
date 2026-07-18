@@ -7,7 +7,7 @@ using Verse;
 
 namespace ApparelPolicyBuilder
 {
-    public class Dialog_ApparelPolicyBuilder : Window
+    public partial class Dialog_ApparelPolicyBuilder : Window
     {
         private const float TitleHeight = 34f;
         private const float ButtonRowHeight = 40f;
@@ -104,7 +104,17 @@ namespace ApparelPolicyBuilder
                 GUI.color = prev;
             }
 
-            var listRect = new Rect(inner.x, searchRect.yMax + 6f, inner.width, inner.yMax - searchRect.yMax - 6f);
+            float listTop = searchRect.yMax + 6f;
+            if (pendingInsert != null)
+            {
+                var banner = new Rect(inner.x, listTop, inner.width, 24f);
+                Widgets.DrawHighlightSelected(banner);
+                var cancelRect = new Rect(banner.xMax - 60f, banner.y + 1f, 60f, 22f);
+                RowLabel(new Rect(banner.x + 4f, banner.y, banner.width - 68f, banner.height), "APB.PickForExpression".Translate());
+                if (Widgets.ButtonText(cancelRect, "APB.CancelPick".Translate())) pendingInsert = null;
+                listTop = banner.yMax + 4f;
+            }
+            var listRect = new Rect(inner.x, listTop, inner.width, inner.yMax - listTop);
             bool searching = !searchText.NullOrEmpty();
 
             var visiblePerGroup = new List<AttributeOption>[groups.Count];
@@ -148,12 +158,16 @@ namespace ApparelPolicyBuilder
 
                 if (!expanded) continue;
 
+                bool insertMode = pendingInsert != null;
                 foreach (AttributeOption opt in visible)
                 {
                     var optRect = new Rect(0f, y, viewRect.width, RowHeight);
-                    if (Mouse.IsOver(optRect)) Widgets.DrawHighlight(optRect);
-                    Widgets.Label(new Rect(optRect.x + 14f, optRect.y, optRect.width - 14f, optRect.height), OptionLabel(opt));
-                    if (Widgets.ButtonInvisible(optRect)) AddRule(opt);
+                    bool selectable = !insertMode || IsPerDefOption(opt);
+                    if (Mouse.IsOver(optRect) && selectable) Widgets.DrawHighlight(optRect);
+                    var labelRect = new Rect(optRect.x + 14f, optRect.y, optRect.width - 14f, optRect.height);
+                    if (selectable) Widgets.Label(labelRect, OptionLabel(opt));
+                    else DrawFaded(labelRect, OptionLabel(opt), TextAnchor.UpperLeft);
+                    if (selectable && Widgets.ButtonInvisible(optRect)) OnAttributeClicked(opt);
                     y += RowHeight;
                 }
             }
@@ -262,18 +276,17 @@ namespace ApparelPolicyBuilder
             Widgets.DrawMenuSection(rect);
             var inner = rect.ContractedBy(6f);
 
-            if (working.rules.Count == 0)
-            {
-                Color prev = GUI.color;
-                GUI.color = new Color(0.7f, 0.7f, 0.7f);
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(inner, "APB.NoRules".Translate());
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = prev;
-                return;
-            }
+            bool advanced = ApparelPolicyBuilderMod.AdvancedExpressions;
+            float contentWidth = inner.width - 16f;
 
-            List<ScopeGroup> groups = ScopeGroups();
+            List<ScopeGroup> groups = working.rules.Count > 0 ? ScopeGroups() : new List<ScopeGroup>();
+            bool hasExprSection = advanced || working.expressionRules.Count > 0;
+            float expressionsGap = groups.Count > 0 && hasExprSection ? 10f : 0f;
+
+            string emptyText = working.IsEmpty
+                ? "APB.NoRules".Translate() + "\n" + (advanced ? "APB.NoRulesExpression" : "APB.NoRulesAdvancedHint").Translate()
+                : null;
+            float emptyHeight = emptyText != null ? Text.CalcHeight(emptyText, contentWidth) : 0f;
 
             float viewHeight = 0f;
             foreach (ScopeGroup g in groups)
@@ -282,14 +295,25 @@ namespace ApparelPolicyBuilder
                 if (!collapsedScopes.Contains(g.key))
                     viewHeight += working.rules.Count(g.match) * RuleRowHeight;
             }
+            viewHeight += emptyHeight + expressionsGap + ExpressionsSectionHeight(advanced);
 
-            var viewRect = new Rect(0f, 0f, inner.width - 16f, Mathf.Max(viewHeight, inner.height));
+            var viewRect = new Rect(0f, 0f, contentWidth, Mathf.Max(viewHeight, inner.height));
             Widgets.BeginScrollView(inner, ref rightScroll, viewRect);
             float y = 0f;
             AttributeRule toDelete = null;
+            pendingTreeOp = null;
 
             foreach (ScopeGroup g in groups)
                 DrawScopeGroup(g, viewRect.width, ref y, ref toDelete);
+
+            if (emptyText != null)
+            {
+                DrawFaded(new Rect(0f, y, viewRect.width, emptyHeight), emptyText, TextAnchor.UpperLeft);
+                y += emptyHeight;
+            }
+
+            y += expressionsGap;
+            DrawExpressionsSection(viewRect.width, ref y, advanced);
 
             Widgets.EndScrollView();
 
@@ -298,6 +322,8 @@ namespace ApparelPolicyBuilder
                 working.rules.Remove(toDelete);
                 valueBuffers.Remove(toDelete);
             }
+            pendingTreeOp?.Invoke();
+            pendingTreeOp = null;
         }
 
         private List<ScopeGroup> ScopeGroups()
