@@ -227,8 +227,12 @@ namespace ApparelPolicyBuilder
                 if (sf == null || !sf.configurable || sf == SpecialThingFilterDefOf.AllowNonDeadmansApparel) continue;
                 if (sf.defName != null && sf.defName.StartsWith("MaterialFilter_allow")) continue;
                 bool matches = false;
-                foreach (ApparelAttributeInfo info in apparel)
-                    if (sf.Worker.CanEverMatch(info.def)) { matches = true; break; }
+                try
+                {
+                    foreach (ApparelAttributeInfo info in apparel)
+                        if (sf.Worker.CanEverMatch(info.def)) { matches = true; break; }
+                }
+                catch (Exception) { continue; }
                 if (matches) result.Add(sf);
             }
             result.Sort((a, b) => string.Compare(a.LabelCap, b.LabelCap, StringComparison.OrdinalIgnoreCase));

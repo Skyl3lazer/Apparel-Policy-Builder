@@ -13,7 +13,6 @@ namespace ApparelPolicyBuilder
         {
             var harmony = new Harmony("Skyl3lazer.ApparelPolicyBuilder");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
-            AttributeCache.EnsureBuilt();
         }
     }
 
