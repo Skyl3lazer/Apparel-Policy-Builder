@@ -142,12 +142,14 @@ namespace ApparelPolicyBuilder
         public ApparelLayerDef layerScope; // null = Global
         public bool exceptUtility;
         public bool utilityOnly;
+        public bool weaponScope; // keeps weapon expressions disjoint from apparel
         public Expression root;
 
         public bool IsValid => root != null && root.IsValid;
 
+        // Weapon expressions range over every weapon, so the apparel layer scoping never applies to them.
         public bool InScope(ApparelAttributeInfo info)
-            => AttributeRule.IsInScope(layerScope, exceptUtility, utilityOnly, info);
+            => weaponScope || AttributeRule.IsInScope(layerScope, exceptUtility, utilityOnly, info);
 
         public bool Disqualifies(ApparelAttributeInfo info, ThingDef evalStuff)
             => InScope(info) && !root.Evaluate(info, evalStuff);
@@ -157,6 +159,7 @@ namespace ApparelPolicyBuilder
             layerScope = layerScope,
             exceptUtility = exceptUtility,
             utilityOnly = utilityOnly,
+            weaponScope = weaponScope,
             root = root?.Clone()
         };
 
@@ -165,6 +168,7 @@ namespace ApparelPolicyBuilder
             Scribe_Defs.Look(ref layerScope, "layerScope");
             Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
             Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
+            Scribe_Values.Look(ref weaponScope, "weaponScope", false);
             Scribe_Deep.Look(ref root, "root");
         }
     }

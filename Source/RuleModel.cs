@@ -172,7 +172,9 @@ namespace ApparelPolicyBuilder
 
             ApplyPerDefPass(filter, AttributeCache.Apparel, weapon: false, evalStuff);
             // Leave weapons untouched until the user authors a weapon rule, so foreign weapon config survives.
-            if (AttributeCache.WeaponsActive && rules.Any(r => r.IsPerDef && r.weaponScope))
+            bool weaponIntent = rules.Any(r => r.IsPerDef && r.weaponScope)
+                || expressionRules.Any(e => e.weaponScope);
+            if (AttributeCache.WeaponsActive && weaponIntent)
                 ApplyPerDefPass(filter, AttributeCache.Weapons, weapon: true, evalStuff);
 
             ApplyMaterialPass(filter);
@@ -191,11 +193,11 @@ namespace ApparelPolicyBuilder
                     if (!rule.IsPerDef || rule.weaponScope != weapon || IsStuffCategoryForbid(rule)) continue;
                     if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
-                // Expression Rules never carry a weapon scope, so they only judge apparel.
-                if (allow && !weapon)
+                if (allow)
                     for (int i = 0; i < expressionRules.Count; i++)
                     {
                         ExpressionRule er = expressionRules[i];
+                        if (er.weaponScope != weapon) continue;
                         if (er.IsValid && er.Disqualifies(info, evalStuff)) { allow = false; break; }
                     }
                 filter.SetAllow(info.def, allow);

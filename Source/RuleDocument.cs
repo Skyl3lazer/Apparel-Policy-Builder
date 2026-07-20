@@ -121,7 +121,7 @@ namespace ApparelPolicyBuilder
         }
 
         // Fails when any def the tree needs is absent, so the caller drops the whole Expression Rule.
-        public bool TryResolve(out Expression expr)
+        public bool TryResolve(out Expression expr, bool weapon)
         {
             expr = null;
             switch (nodeKind)
@@ -135,7 +135,9 @@ namespace ApparelPolicyBuilder
                     if (kind == RuleAttributeKind.Categorical)
                     {
                         if (attrKey.NullOrEmpty() || categoricalValue == null) return false;
-                        if (AttributeCache.Options != null && AttributeCache.OptionFor(attrKey) == null) return false;
+                        // A weapon leaf is dormant, not gone, when Auto Arm is absent - keep it inert.
+                        bool universeActive = !weapon || AttributeCache.WeaponsActive;
+                        if (universeActive && AttributeCache.Options != null && AttributeCache.OptionFor(attrKey, weapon) == null) return false;
                     }
                     else
                     {
@@ -145,7 +147,7 @@ namespace ApparelPolicyBuilder
                     expr = new ConditionExpr { condition = cond };
                     return true;
                 case ExprNodeKind.Not:
-                    if (children.Count == 0 || !children[0].TryResolve(out Expression childExpr)) return false;
+                    if (children.Count == 0 || !children[0].TryResolve(out Expression childExpr, weapon)) return false;
                     expr = new NotExpr { child = childExpr };
                     return true;
                 default:
@@ -153,7 +155,7 @@ namespace ApparelPolicyBuilder
                     var g = new GroupExpr { any = any };
                     foreach (PortableExpr pc in children)
                     {
-                        if (!pc.TryResolve(out Expression ce)) return false;
+                        if (!pc.TryResolve(out Expression ce, weapon)) return false;
                         g.children.Add(ce);
                     }
                     expr = g;
@@ -182,6 +184,7 @@ namespace ApparelPolicyBuilder
         public string layerScope;
         public bool exceptUtility;
         public bool utilityOnly;
+        public bool weaponScope;
         public PortableExpr root;
 
         public static PortableExpressionRule From(ExpressionRule e) => new PortableExpressionRule
@@ -189,6 +192,7 @@ namespace ApparelPolicyBuilder
             layerScope = e.layerScope?.defName,
             exceptUtility = e.exceptUtility,
             utilityOnly = e.utilityOnly,
+            weaponScope = e.weaponScope,
             root = e.root != null ? PortableExpr.From(e.root) : null
         };
 
@@ -201,9 +205,9 @@ namespace ApparelPolicyBuilder
                 layer = DefDatabase<ApparelLayerDef>.GetNamedSilentFail(layerScope);
                 if (layer == null) return false;
             }
-            if (root == null || !root.TryResolve(out Expression expr)) return false;
+            if (root == null || !root.TryResolve(out Expression expr, weaponScope)) return false;
 
-            rule = new ExpressionRule { layerScope = layer, exceptUtility = exceptUtility, utilityOnly = utilityOnly, root = expr };
+            rule = new ExpressionRule { layerScope = layer, exceptUtility = exceptUtility, utilityOnly = utilityOnly, weaponScope = weaponScope, root = expr };
             return rule.IsValid;
         }
 
@@ -212,6 +216,7 @@ namespace ApparelPolicyBuilder
             Scribe_Values.Look(ref layerScope, "layerScope");
             Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
             Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
+            Scribe_Values.Look(ref weaponScope, "weaponScope", false);
             Scribe_Deep.Look(ref root, "root");
         }
     }

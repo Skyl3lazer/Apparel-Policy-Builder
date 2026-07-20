@@ -94,7 +94,8 @@ namespace ApparelPolicyBuilder
                 .OrderBy(gr => gr.isFacet).ThenBy(gr => gr.label, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-        private bool WeaponMode => showWeapons && AttributeCache.WeaponsActive && pendingInsert == null;
+        // While picking a condition, the palette follows the target expression's universe; otherwise the toggle.
+        private bool WeaponMode => pendingInsert != null ? pendingInsertWeapon : (showWeapons && AttributeCache.WeaponsActive);
         private List<OptionGroup> ActiveGroups => WeaponMode ? weaponGroups : apparelGroups;
         private bool ShowPaletteToggle => AttributeCache.WeaponsActive && pendingInsert == null;
 
@@ -303,10 +304,11 @@ namespace ApparelPolicyBuilder
             float contentWidth = inner.width - 16f;
 
             List<ScopeGroup> groups = ScopeGroups();
-            bool hasExprSection = advanced || working.expressionRules.Count > 0;
+            bool hasVisibleExpr = working.expressionRules.Any(ExprVisible);
+            bool hasExprSection = advanced || hasVisibleExpr;
             float expressionsGap = groups.Count > 0 && hasExprSection ? 10f : 0f;
 
-            bool noVisibleContent = !working.rules.Any(RuleVisible) && working.expressionRules.Count == 0;
+            bool noVisibleContent = !working.rules.Any(RuleVisible) && !hasVisibleExpr;
             string emptyText = noVisibleContent
                 ? "APB.NoRules".Translate() + "\n" + (advanced ? "APB.NoRulesExpression" : "APB.NoRulesAdvancedHint").Translate()
                 : null;
