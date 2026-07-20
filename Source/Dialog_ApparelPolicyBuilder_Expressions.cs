@@ -11,6 +11,8 @@ namespace ApparelPolicyBuilder
     {
         // Set while the user is picking an attribute from the left panel to drop into a chosen Expression node.
         private Action<Expression> pendingInsert;
+        // Locks the pick palette to the target expression's universe so a weapon tree only takes weapon leaves.
+        private bool pendingInsertWeapon;
         // A structural edit from an inline button, deferred until after the tree draw to avoid mutating mid-iteration.
         private Action pendingTreeOp;
         private readonly Dictionary<Condition, string> condBuffers = new Dictionary<Condition, string>();
@@ -46,7 +48,8 @@ namespace ApparelPolicyBuilder
         {
             float h = advanced ? HeaderHeight : 0f;
             foreach (ExpressionRule er in working.expressionRules)
-                h += RuleRowHeight + MeasureExpr(er.root) * RuleRowHeight + 6f;
+                if (ExprVisible(er))
+                    h += RuleRowHeight + MeasureExpr(er.root) * RuleRowHeight + 6f;
             return h;
         }
 
@@ -82,36 +85,53 @@ namespace ApparelPolicyBuilder
                 var newRect = new Rect(header.x + 4f + labelW + 8f, header.y + 2f, 28f, HeaderHeight - 4f);
                 TooltipHandler.TipRegionByKey(newRect, "APB.NewExpressionTip");
                 if (Widgets.ButtonText(newRect, "+"))
-                    working.expressionRules.Add(new ExpressionRule { root = new GroupExpr { any = true } });
+                    working.expressionRules.Add(new ExpressionRule
+                    {
+                        weaponScope = showWeapons && AttributeCache.WeaponsActive,
+                        root = new GroupExpr { any = true }
+                    });
                 y += HeaderHeight;
             }
 
             foreach (ExpressionRule er in working.expressionRules)
             {
+                if (!ExprVisible(er)) continue;
                 DrawExpressionCard(er, width, ref y);
                 y += 6f;
             }
         }
+
+        // A weapon expression is hidden (but kept) while its universe is inactive, mirroring weapon rules.
+        private static bool ExprVisible(ExpressionRule er) => AttributeCache.WeaponsActive || !er.weaponScope;
 
         private void DrawExpressionCard(ExpressionRule er, float width, ref float y)
         {
             var headerRow = new Rect(0f, y, width, RuleRowHeight);
             Widgets.DrawLightHighlight(headerRow);
             var scopeBtn = new Rect(headerRow.x + 4f, headerRow.y + 2f, 170f, RuleRowHeight - 4f);
-            TooltipHandler.TipRegionByKey(scopeBtn, "APB.ExprScopeTip");
-            if (Widgets.ButtonText(scopeBtn, ExprScopeLabel(er)))
-                OpenExprScopeMenu(er);
+            if (er.weaponScope)
+            {
+                // A weapon expression can't cross into apparel scopes, so its scope is fixed.
+                TooltipHandler.TipRegionByKey(scopeBtn, "APB.WeaponScopeTip");
+                DrawFaded(scopeBtn, ExprScopeLabel(er), TextAnchor.MiddleLeft);
+            }
+            else
+            {
+                TooltipHandler.TipRegionByKey(scopeBtn, "APB.ExprScopeTip");
+                if (Widgets.ButtonText(scopeBtn, ExprScopeLabel(er)))
+                    OpenExprScopeMenu(er);
+            }
             var delRect = new Rect(headerRow.xMax - 26f, headerRow.y + (RuleRowHeight - 24f) / 2f, 24f, 24f);
             if (Widgets.ButtonImage(delRect, TexButton.Delete))
                 pendingTreeOp = () => working.expressionRules.Remove(er);
             y += RuleRowHeight;
 
-            DrawExprNode(er.root, null, 1, width, ref y);
+            DrawExprNode(er.root, null, 1, width, ref y, er.weaponScope);
         }
 
         // ---- Recursive node drawing. deleteSelf == null means this node is the (undeletable) root. ----
 
-        private void DrawExprNode(Expression node, Action deleteSelf, int depth, float width, ref float y)
+        private void DrawExprNode(Expression node, Action deleteSelf, int depth, float width, ref float y, bool weapon)
         {
             var band = new Rect(0f, y, width, RuleRowHeight);
             if (Mouse.IsOver(band)) Widgets.DrawHighlight(band);
@@ -122,7 +142,7 @@ namespace ApparelPolicyBuilder
             switch (node)
             {
                 case GroupExpr g:
-                    DrawGroupRow(g, row, deleteSelf);
+                    DrawGroupRow(g, row, deleteSelf, weapon);
                     y += RuleRowHeight;
                     if (g.children.Count == 0)
                     {
@@ -134,51 +154,51 @@ namespace ApparelPolicyBuilder
                         foreach (Expression child in g.children)
                         {
                             Expression captured = child;
-                            DrawExprNode(child, () => g.children.Remove(captured), depth + 1, width, ref y);
+                            DrawExprNode(child, () => g.children.Remove(captured), depth + 1, width, ref y, weapon);
                         }
                     break;
 
                 case NotExpr n:
-                    DrawNotRow(n, row, deleteSelf);
+                    DrawNotRow(n, row, deleteSelf, weapon);
                     y += RuleRowHeight;
                     if (n.child != null)
                     {
                         NotExpr capturedNot = n;
-                        DrawExprNode(n.child, () => capturedNot.child = null, depth + 1, width, ref y);
+                        DrawExprNode(n.child, () => capturedNot.child = null, depth + 1, width, ref y, weapon);
                     }
                     break;
 
                 case ConditionExpr ce:
-                    DrawConditionRow(ce.condition, row, deleteSelf);
+                    DrawConditionRow(ce.condition, row, deleteSelf, weapon);
                     y += RuleRowHeight;
                     break;
             }
         }
 
-        private void DrawGroupRow(GroupExpr g, Rect row, Action deleteSelf)
+        private void DrawGroupRow(GroupExpr g, Rect row, Action deleteSelf, bool weapon)
         {
             var opRect = new Rect(row.x, row.y + 2f, 74f, row.height - 4f);
             if (Widgets.ButtonText(opRect, (g.any ? "APB.AnyOf" : "APB.AllOf").Translate()))
                 g.any = !g.any;
             var addRect = new Rect(opRect.xMax + 4f, row.y + 2f, 28f, row.height - 4f);
             if (Widgets.ButtonText(addRect, "+"))
-                OpenAddMenu(expr => g.children.Add(expr));
+                OpenAddMenu(expr => g.children.Add(expr), weapon);
             DrawNodeDelete(row, deleteSelf);
         }
 
-        private void DrawNotRow(NotExpr n, Rect row, Action deleteSelf)
+        private void DrawNotRow(NotExpr n, Rect row, Action deleteSelf, bool weapon)
         {
             RowLabel(new Rect(row.x, row.y, 40f, row.height), "APB.Not".Translate());
             if (n.child == null)
             {
                 var addRect = new Rect(row.x + 44f, row.y + 2f, 28f, row.height - 4f);
                 if (Widgets.ButtonText(addRect, "+"))
-                    OpenAddMenu(expr => n.child = expr);
+                    OpenAddMenu(expr => n.child = expr, weapon);
             }
             DrawNodeDelete(row, deleteSelf);
         }
 
-        private void DrawConditionRow(Condition c, Rect row, Action deleteSelf)
+        private void DrawConditionRow(Condition c, Rect row, Action deleteSelf, bool weapon)
         {
             const float gap = 4f, valueCol = 170f, fieldW = 48f;
             float rightEdge = row.xMax;
@@ -194,9 +214,9 @@ namespace ApparelPolicyBuilder
 
             if (c.kind == RuleAttributeKind.Categorical)
             {
-                RowLabel(nameRect, AttributeCache.OptionFor(c.attrKey)?.label ?? c.attrKey);
-                if (Widgets.ButtonText(new Rect(valueX, row.y, valueCol, row.height), CondCategoricalValueLabel(c)))
-                    OpenCondCategoricalMenu(c);
+                RowLabel(nameRect, AttributeCache.OptionFor(c.attrKey, weapon)?.label ?? c.attrKey);
+                if (Widgets.ButtonText(new Rect(valueX, row.y, valueCol, row.height), CondCategoricalValueLabel(c, weapon)))
+                    OpenCondCategoricalMenu(c, weapon);
             }
             else
             {
@@ -238,11 +258,11 @@ namespace ApparelPolicyBuilder
 
         // ---- Menus ----
 
-        private void OpenAddMenu(Action<Expression> insert)
+        private void OpenAddMenu(Action<Expression> insert, bool weapon)
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("APB.AddCondition".Translate(), () => pendingInsert = insert),
+                new FloatMenuOption("APB.AddCondition".Translate(), () => { pendingInsert = insert; pendingInsertWeapon = weapon; }),
                 new FloatMenuOption("APB.AddAllGroup".Translate(), () => insert(new GroupExpr { any = false })),
                 new FloatMenuOption("APB.AddAnyGroup".Translate(), () => insert(new GroupExpr { any = true })),
                 new FloatMenuOption("APB.AddNot".Translate(), () => insert(new NotExpr()))
@@ -261,9 +281,9 @@ namespace ApparelPolicyBuilder
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private void OpenCondCategoricalMenu(Condition c)
+        private void OpenCondCategoricalMenu(Condition c, bool weapon)
         {
-            AttributeOption opt = AttributeCache.OptionFor(c.attrKey);
+            AttributeOption opt = AttributeCache.OptionFor(c.attrKey, weapon);
             if (opt?.values == null) return;
             var options = new List<FloatMenuOption>();
             foreach (CategoricalValue cv in opt.values)
@@ -274,15 +294,16 @@ namespace ApparelPolicyBuilder
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private static string CondCategoricalValueLabel(Condition c)
+        private static string CondCategoricalValueLabel(Condition c, bool weapon)
         {
-            AttributeOption opt = AttributeCache.OptionFor(c.attrKey);
+            AttributeOption opt = AttributeCache.OptionFor(c.attrKey, weapon);
             CategoricalValue v = opt?.values.FirstOrDefault(cv => cv.token == c.categoricalValue);
             return v?.label ?? c.categoricalValue ?? "APB.Pick".Translate();
         }
 
         private static string ExprScopeLabel(ExpressionRule er)
-            => er.utilityOnly ? "APB.UtilityOnly".Translate().ToString()
+            => er.weaponScope ? "APB.WeaponScope".Translate().ToString()
+               : er.utilityOnly ? "APB.UtilityOnly".Translate().ToString()
                : er.exceptUtility ? "APB.GlobalExceptUtility".Translate().ToString()
                : er.layerScope != null ? er.layerScope.LabelCap.ToString()
                : "APB.Global".Translate().ToString();
