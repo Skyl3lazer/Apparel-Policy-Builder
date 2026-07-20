@@ -61,14 +61,31 @@ namespace ApparelPolicyBuilder
 
     public static class AttributeCache
     {
+        // A discovered set of things (apparel or weapons) scanned identically; weapons carry no layers.
+        private class Universe
+        {
+            public readonly List<ApparelAttributeInfo> infos = new List<ApparelAttributeInfo>();
+            public readonly HashSet<StatDef> numericSet = new HashSet<StatDef>();
+            public readonly HashSet<ApparelLayerDef> layerSet = new HashSet<ApparelLayerDef>();
+            public readonly Dictionary<string, AttributeOption> catOptions = new Dictionary<string, AttributeOption>();
+            public readonly Dictionary<string, Dictionary<string, string>> catValueLabels = new Dictionary<string, Dictionary<string, string>>();
+            public readonly HashSet<ThingDef> stuffSet = new HashSet<ThingDef>();
+            public bool qualityActive, hpActive;
+        }
+
         public static List<ApparelAttributeInfo> Apparel { get; private set; }
-        public static List<AttributeOption> Options { get; private set; }
+        public static List<ApparelAttributeInfo> Weapons { get; private set; }
+        public static List<AttributeOption> Options { get; private set; }       // apparel palette
+        public static List<AttributeOption> WeaponOptions { get; private set; } // weapon palette
         public static List<ApparelLayerDef> Layers { get; private set; }
         public static List<ThingDef> StuffMaterials { get; private set; }
         public static List<ThingDef> MaterialAttributes { get; private set; }
         public static bool MaterialFilterActive { get; private set; }
         public static bool QualityFacetActive { get; private set; }
         public static bool HitPointsFacetActive { get; private set; }
+
+        // True only when Auto Arm has folded weapons into the policy tree, so any weapon was scanned.
+        public static bool WeaponsActive => Weapons != null && Weapons.Count > 0;
 
         // Stuff-powered stats (armor/insulation) mapped to their StuffEffectMultiplier stat.
         private static Dictionary<StatDef, StatDef> stuffPoweredMultipliers;
@@ -79,6 +96,7 @@ namespace ApparelPolicyBuilder
         private static Dictionary<ThingDef, SpecialThingFilterDef> materialFilters;
         private static HashSet<string> stuffCategoryNames;
         private static Dictionary<string, AttributeOption> optionsByKey;
+        private static Dictionary<string, AttributeOption> weaponOptionsByKey;
 
         public static bool IsStuffPowered(StatDef stat)
             => stuffPoweredMultipliers != null && stuffPoweredMultipliers.ContainsKey(stat);
@@ -86,8 +104,13 @@ namespace ApparelPolicyBuilder
         public static bool IsStuffCategory(string token)
             => token != null && stuffCategoryNames != null && stuffCategoryNames.Contains(token);
 
-        public static AttributeOption OptionFor(string key)
-            => key != null && optionsByKey != null && optionsByKey.TryGetValue(key, out AttributeOption o) ? o : null;
+        public static AttributeOption OptionFor(string key) => OptionFor(key, false);
+
+        public static AttributeOption OptionFor(string key, bool weapon)
+        {
+            Dictionary<string, AttributeOption> map = weapon ? weaponOptionsByKey : optionsByKey;
+            return key != null && map != null && map.TryGetValue(key, out AttributeOption o) ? o : null;
+        }
 
         public static SpecialThingFilterDef MaterialFilterFor(ThingDef stuff)
             => materialFilters != null && materialFilters.TryGetValue(stuff, out SpecialThingFilterDef sf) ? sf : null;
@@ -99,13 +122,6 @@ namespace ApparelPolicyBuilder
 
         public static void Build()
         {
-            var apparel = new List<ApparelAttributeInfo>();
-            var numericSet = new HashSet<StatDef>();
-            var layerSet = new HashSet<ApparelLayerDef>();
-            var catOptions = new Dictionary<string, AttributeOption>();
-            var catValueLabels = new Dictionary<string, Dictionary<string, string>>();
-            bool qualityActive = false, hpActive = false;
-
             stuffPoweredMultipliers = new Dictionary<StatDef, StatDef>();
             stuffMetaStats = new HashSet<StatDef>();
             unevaluableStats = new HashSet<StatDef>();
@@ -124,59 +140,94 @@ namespace ApparelPolicyBuilder
             stuffCategoryNames = new HashSet<string>(
                 DefDatabase<StuffCategoryDef>.AllDefsListForReading.Select(c => c.defName));
 
-            // Exactly the defs the apparel policy screen shows: its parent filter allows the
-            // Apparel category. Scanning by def.IsApparel is broader and leaks non-apparel gear.
+            var apparelU = new Universe();
+            var weaponU = new Universe();
+
+            // Exactly the defs the policy screen shows, since its filter allows the Apparel category;
+            // Auto Arm folds weapons in under it, so split them out rather than scanning by def.IsApparel.
             var apparelFilter = new ThingFilter();
             apparelFilter.SetAllow(ThingCategoryDefOf.Apparel, true);
             foreach (ThingDef def in apparelFilter.AllowedThingDefs)
             {
-                if (def.apparel == null) continue;
-                try
-                {
-                    var layers = def.apparel.layers != null
-                        ? new HashSet<ApparelLayerDef>(def.apparel.layers)
-                        : new HashSet<ApparelLayerDef>();
-                    Dictionary<StatDef, float> statValues = ComputeStatValues(def);
-                    var catTokens = DiscoverCategorical(def, catOptions, catValueLabels);
-
-                    apparel.Add(new ApparelAttributeInfo(def, layers, statValues, catTokens));
-                    layerSet.UnionWith(layers);
-                    // Offer a stat only when some loaded apparel actually carries a non-default value for it.
-                    foreach (KeyValuePair<StatDef, float> kv in statValues)
-                        if (kv.Value != kv.Key.defaultBaseValue) numericSet.Add(kv.Key);
-                    if (!qualityActive && def.FollowQualityThingFilter()) qualityActive = true;
-                    if (!hpActive && def.useHitPoints) hpActive = true;
-                }
+                Universe u;
+                if (def.apparel != null) u = apparelU;
+                else if (def.IsWeapon) u = weaponU;
+                else continue;
+                try { ScanDef(def, u); }
                 catch (Exception e)
                 {
                     Log.Warning($"[Apparel Policy Builder] Skipped caching {def.defName}: {e.Message}");
                 }
             }
 
-            Apparel = apparel;
-            Layers = layerSet.OrderBy(l => l.drawOrder).ToList();
-            QualityFacetActive = qualityActive;
-            HitPointsFacetActive = hpActive;
+            Apparel = apparelU.infos;
+            Weapons = weaponU.infos;
+            Layers = apparelU.layerSet.OrderBy(l => l.drawOrder).ToList();
+            QualityFacetActive = apparelU.qualityActive;
+            HitPointsFacetActive = apparelU.hpActive;
 
-            var stuffSet = new HashSet<ThingDef>();
-            foreach (ApparelAttributeInfo info in apparel)
-                if (info.def.MadeFromStuff)
-                    stuffSet.UnionWith(GenStuff.AllowedStuffsFor(info.def));
-            StuffMaterials = stuffSet.OrderBy(s => s.label ?? s.defName).ToList();
-            BuildMaterialFilterMap(stuffSet);
+            var allStuffs = new HashSet<ThingDef>(apparelU.stuffSet);
+            allStuffs.UnionWith(weaponU.stuffSet);
+            StuffMaterials = allStuffs.OrderBy(s => s.label ?? s.defName).ToList();
+            BuildMaterialFilterMap(allStuffs);
 
-            foreach (KeyValuePair<string, AttributeOption> kv in catOptions)
-                kv.Value.values = catValueLabels[kv.Key]
+            FinalizeCatValues(apparelU);
+            FinalizeCatValues(weaponU);
+
+            bool apparelMaterial = MaterialFilterActive && apparelU.stuffSet.Any(materialFilters.ContainsKey);
+            bool weaponMaterial = MaterialFilterActive && weaponU.stuffSet.Any(materialFilters.ContainsKey);
+
+            var weaponCats = ThingCategoryDefOf.Weapons != null
+                ? new HashSet<ThingCategoryDef>(ThingCategoryDefOf.Weapons.ThisAndChildCategoryDefs)
+                : new HashSet<ThingCategoryDef>();
+
+            Options = BuildOptions(apparelU.numericSet, apparelU.catOptions.Values,
+                DiscoverSpecialFilters(apparelU.infos, weapon: false, weaponCats), apparelU.qualityActive, apparelU.hpActive, apparelMaterial);
+            WeaponOptions = weaponU.infos.Count > 0
+                ? BuildOptions(weaponU.numericSet, weaponU.catOptions.Values,
+                    DiscoverSpecialFilters(weaponU.infos, weapon: true, weaponCats), weaponU.qualityActive, weaponU.hpActive, weaponMaterial)
+                : new List<AttributeOption>();
+
+            optionsByKey = BuildByKey(Options);
+            weaponOptionsByKey = BuildByKey(WeaponOptions);
+        }
+
+        private static void ScanDef(ThingDef def, Universe u)
+        {
+            var layers = def.apparel?.layers != null
+                ? new HashSet<ApparelLayerDef>(def.apparel.layers)
+                : new HashSet<ApparelLayerDef>();
+            Dictionary<StatDef, float> statValues = ComputeStatValues(def);
+            var catTokens = DiscoverCategorical(def, u.catOptions, u.catValueLabels);
+
+            u.infos.Add(new ApparelAttributeInfo(def, layers, statValues, catTokens));
+            u.layerSet.UnionWith(layers);
+            // Offer a stat only when some loaded thing actually carries a non-default value for it.
+            foreach (KeyValuePair<StatDef, float> kv in statValues)
+                if (kv.Value != kv.Key.defaultBaseValue) u.numericSet.Add(kv.Key);
+            if (!u.qualityActive && def.FollowQualityThingFilter()) u.qualityActive = true;
+            if (!u.hpActive && def.useHitPoints) u.hpActive = true;
+            if (def.MadeFromStuff) u.stuffSet.UnionWith(GenStuff.AllowedStuffsFor(def));
+        }
+
+        private static void FinalizeCatValues(Universe u)
+        {
+            foreach (KeyValuePair<string, AttributeOption> kv in u.catOptions)
+                kv.Value.values = u.catValueLabels[kv.Key]
                     .Select(p => new CategoricalValue { token = p.Key, label = p.Value })
                     .OrderBy(v => v.label).ToList();
+        }
 
-            Options = BuildOptions(numericSet, catOptions.Values, DiscoverSpecialFilters(apparel));
-            optionsByKey = new Dictionary<string, AttributeOption>();
-            foreach (AttributeOption o in Options) optionsByKey[o.key] = o;
+        private static Dictionary<string, AttributeOption> BuildByKey(List<AttributeOption> opts)
+        {
+            var map = new Dictionary<string, AttributeOption>();
+            foreach (AttributeOption o in opts) map[o.key] = o;
+            return map;
         }
 
         private static List<AttributeOption> BuildOptions(HashSet<StatDef> numericSet,
-            IEnumerable<AttributeOption> categorical, List<SpecialThingFilterDef> specialFilters)
+            IEnumerable<AttributeOption> categorical, List<SpecialThingFilterDef> specialFilters,
+            bool qualityActive, bool hpActive, bool materialActive)
         {
             var options = new List<AttributeOption>();
             foreach (StatDef s in numericSet)
@@ -190,11 +241,11 @@ namespace ApparelPolicyBuilder
                     stat = s
                 });
             options.AddRange(categorical);
-            if (QualityFacetActive)
+            if (qualityActive)
                 options.Add(new AttributeOption { key = "facet:quality", order = 0, kind = RuleAttributeKind.Quality });
-            if (HitPointsFacetActive)
+            if (hpActive)
                 options.Add(new AttributeOption { key = "facet:hitpoints", order = 1, kind = RuleAttributeKind.HitPoints });
-            if (MaterialFilterActive && MaterialAttributes.Count > 0)
+            if (materialActive)
                 options.Add(new AttributeOption { key = "facet:material", order = 2, kind = RuleAttributeKind.Material });
             int i = 10;
             foreach (SpecialThingFilterDef sf in specialFilters)
@@ -209,10 +260,11 @@ namespace ApparelPolicyBuilder
             return options;
         }
 
-        // The special filters the apparel policy tree draws: those structurally attached to the
-        // Apparel category (its own, its descendants', and its ancestors') and able to match apparel,
-        // minus the one the dialog hides and Material Filter's per-material filters.
-        private static List<SpecialThingFilterDef> DiscoverSpecialFilters(List<ApparelAttributeInfo> apparel)
+        // Routing by attachment (weapon-subtree -> weapon palette, else apparel) rather than by what the
+        // worker matches keeps parallel same-labelled defs (AllowBurnableApparel vs AllowBurnableWeapons)
+        // from both landing in one palette.
+        private static List<SpecialThingFilterDef> DiscoverSpecialFilters(List<ApparelAttributeInfo> universe,
+            bool weapon, HashSet<ThingCategoryDef> weaponCats)
         {
             var result = new List<SpecialThingFilterDef>();
             ThingCategoryDef apparelCat = ThingCategoryDefOf.Apparel;
@@ -226,10 +278,12 @@ namespace ApparelPolicyBuilder
             {
                 if (sf == null || !sf.configurable || sf == SpecialThingFilterDefOf.AllowNonDeadmansApparel) continue;
                 if (sf.defName != null && sf.defName.StartsWith("MaterialFilter_allow")) continue;
+                bool attachedToWeapon = sf.parentCategory != null && weaponCats.Contains(sf.parentCategory);
+                if (attachedToWeapon != weapon) continue;
                 bool matches = false;
                 try
                 {
-                    foreach (ApparelAttributeInfo info in apparel)
+                    foreach (ApparelAttributeInfo info in universe)
                         if (sf.Worker.CanEverMatch(info.def)) { matches = true; break; }
                 }
                 catch (Exception) { continue; }

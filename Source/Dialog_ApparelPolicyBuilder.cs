@@ -23,7 +23,9 @@ namespace ApparelPolicyBuilder
 
         private readonly ApparelPolicy policy;
         private Ruleset working;
-        private readonly List<OptionGroup> groups;
+        private readonly List<OptionGroup> apparelGroups;
+        private readonly List<OptionGroup> weaponGroups;
+        private bool showWeapons;
         private readonly HashSet<string> collapsedGroups = new HashSet<string>();
         private readonly HashSet<string> collapsedScopes = new HashSet<string>(); // keyed by scope: "global", "exceptutil", "layer:<defName>"
 
@@ -43,19 +45,11 @@ namespace ApparelPolicyBuilder
             Ruleset stored = GameComponent_ApparelPolicyBuilder.Instance?.GetRuleset(policy);
             working = stored != null ? stored.Clone() : new Ruleset();
 
-            groups = AttributeCache.Options
-                .GroupBy(GroupKey)
-                .Select(g => new OptionGroup
-                {
-                    isFacet = g.Key == null,
-                    label = GroupLabel(g.Key),
-                    options = g.OrderBy(o => o.order).ThenBy(OptionLabel).ToList()
-                })
-                .OrderBy(gr => gr.isFacet).ThenBy(gr => gr.label, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            apparelGroups = BuildGroups(AttributeCache.Options);
+            weaponGroups = BuildGroups(AttributeCache.WeaponOptions);
 
-            foreach (OptionGroup g in groups.Skip(1))
-                collapsedGroups.Add(g.label);
+            foreach (OptionGroup g in apparelGroups.Skip(1)) collapsedGroups.Add(g.label);
+            foreach (OptionGroup g in weaponGroups.Skip(1)) collapsedGroups.Add(g.label);
 
             doCloseX = true;
             draggable = true;
@@ -88,6 +82,22 @@ namespace ApparelPolicyBuilder
 
         // ---- Left: attribute picker ----
 
+        private static List<OptionGroup> BuildGroups(List<AttributeOption> options)
+            => options
+                .GroupBy(GroupKey)
+                .Select(g => new OptionGroup
+                {
+                    isFacet = g.Key == null,
+                    label = GroupLabel(g.Key),
+                    options = g.OrderBy(o => o.order).ThenBy(OptionLabel).ToList()
+                })
+                .OrderBy(gr => gr.isFacet).ThenBy(gr => gr.label, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+        private bool WeaponMode => showWeapons && AttributeCache.WeaponsActive && pendingInsert == null;
+        private List<OptionGroup> ActiveGroups => WeaponMode ? weaponGroups : apparelGroups;
+        private bool ShowPaletteToggle => AttributeCache.WeaponsActive && pendingInsert == null;
+
         private void DrawLeftPanel(Rect rect)
         {
             Widgets.DrawMenuSection(rect);
@@ -105,6 +115,18 @@ namespace ApparelPolicyBuilder
             }
 
             float listTop = searchRect.yMax + 6f;
+            if (ShowPaletteToggle)
+            {
+                var toggleRect = new Rect(inner.x, listTop, inner.width, 26f);
+                float half = (toggleRect.width - 4f) / 2f;
+                if (Widgets.ButtonText(new Rect(toggleRect.x, toggleRect.y, half, toggleRect.height),
+                        "APB.PaletteApparel".Translate(), active: showWeapons))
+                    showWeapons = false;
+                if (Widgets.ButtonText(new Rect(toggleRect.x + half + 4f, toggleRect.y, half, toggleRect.height),
+                        "APB.PaletteWeapons".Translate(), active: !showWeapons))
+                    showWeapons = true;
+                listTop = toggleRect.yMax + 6f;
+            }
             if (pendingInsert != null)
             {
                 var banner = new Rect(inner.x, listTop, inner.width, 24f);
@@ -117,6 +139,7 @@ namespace ApparelPolicyBuilder
             var listRect = new Rect(inner.x, listTop, inner.width, inner.yMax - listTop);
             bool searching = !searchText.NullOrEmpty();
 
+            List<OptionGroup> groups = ActiveGroups;
             var visiblePerGroup = new List<AttributeOption>[groups.Count];
             float viewHeight = 0f;
             for (int i = 0; i < groups.Count; i++)
@@ -279,11 +302,12 @@ namespace ApparelPolicyBuilder
             bool advanced = ApparelPolicyBuilderMod.AdvancedExpressions;
             float contentWidth = inner.width - 16f;
 
-            List<ScopeGroup> groups = working.rules.Count > 0 ? ScopeGroups() : new List<ScopeGroup>();
+            List<ScopeGroup> groups = ScopeGroups();
             bool hasExprSection = advanced || working.expressionRules.Count > 0;
             float expressionsGap = groups.Count > 0 && hasExprSection ? 10f : 0f;
 
-            string emptyText = working.IsEmpty
+            bool noVisibleContent = !working.rules.Any(RuleVisible) && working.expressionRules.Count == 0;
+            string emptyText = noVisibleContent
                 ? "APB.NoRules".Translate() + "\n" + (advanced ? "APB.NoRulesExpression" : "APB.NoRulesAdvancedHint").Translate()
                 : null;
             float emptyHeight = emptyText != null ? Text.CalcHeight(emptyText, contentWidth) : 0f;
@@ -326,22 +350,31 @@ namespace ApparelPolicyBuilder
             pendingTreeOp = null;
         }
 
+        // The Weapon group shows only while its universe is active, so a saved weapon rule stays hidden
+        // but preserved when Auto Arm is absent rather than surfacing in an apparel scope.
+        private static bool IsApparelGlobal(AttributeRule r)
+            => r.layerScope == null && !r.exceptUtility && !r.utilityOnly && !r.weaponScope;
+
+        private static bool RuleVisible(AttributeRule r) => AttributeCache.WeaponsActive || !r.weaponScope;
+
         private List<ScopeGroup> ScopeGroups()
         {
             var groups = new List<ScopeGroup>();
-            if (working.rules.Any(r => r.layerScope == null && !r.exceptUtility && !r.utilityOnly))
-                groups.Add(new ScopeGroup { key = "global", label = "APB.Global".Translate(), match = r => r.layerScope == null && !r.exceptUtility && !r.utilityOnly });
+            if (working.rules.Any(IsApparelGlobal))
+                groups.Add(new ScopeGroup { key = "global", label = "APB.Global".Translate(), match = IsApparelGlobal });
             if (working.rules.Any(r => r.exceptUtility))
                 groups.Add(new ScopeGroup { key = "exceptutil", label = "APB.GlobalExceptUtility".Translate(), match = r => r.exceptUtility });
             if (working.rules.Any(r => r.utilityOnly))
                 groups.Add(new ScopeGroup { key = "utilityonly", label = "APB.UtilityOnly".Translate(), match = r => r.utilityOnly });
             foreach (ApparelLayerDef layer in working.rules
-                .Where(r => r.layerScope != null).Select(r => r.layerScope).Distinct()
+                .Where(r => r.layerScope != null && !r.weaponScope).Select(r => r.layerScope).Distinct()
                 .OrderBy(l => l.drawOrder))
             {
                 ApparelLayerDef captured = layer;
-                groups.Add(new ScopeGroup { key = "layer:" + captured.defName, label = captured.LabelCap, match = r => r.layerScope == captured });
+                groups.Add(new ScopeGroup { key = "layer:" + captured.defName, label = captured.LabelCap, match = r => r.layerScope == captured && !r.weaponScope });
             }
+            if (AttributeCache.WeaponsActive && working.rules.Any(r => r.weaponScope))
+                groups.Add(new ScopeGroup { key = "weapon", label = "APB.WeaponScope".Translate(), match = r => r.weaponScope });
             return groups;
         }
 
@@ -411,7 +444,7 @@ namespace ApparelPolicyBuilder
                     rule.polarity = allow ? RulePolarity.Forbid : RulePolarity.Require;
             }
 
-            if (rule.IsPerDef)
+            if (rule.IsPerDef && !rule.weaponScope)
             {
                 var scopeSlot = Slice(26f);
                 TooltipHandler.TipRegion(scopeSlot, ScopeLabel(rule));
@@ -420,8 +453,9 @@ namespace ApparelPolicyBuilder
             }
             else
             {
+                // Weapon rules can't cross into apparel scopes; facets are always Global.
                 var scopeSlot = Slice(26f);
-                TooltipHandler.TipRegionByKey(scopeSlot, "APB.FacetScopeTip");
+                TooltipHandler.TipRegionByKey(scopeSlot, rule.weaponScope ? "APB.WeaponScopeTip" : "APB.FacetScopeTip");
                 DrawFaded(scopeSlot, "≡", TextAnchor.MiddleCenter);
             }
 
@@ -590,7 +624,9 @@ namespace ApparelPolicyBuilder
 
         private void AddRule(AttributeOption opt)
         {
-            var rule = new AttributeRule { kind = opt.kind };
+            // Only per-def rules carry the Weapon scope; facets and special filters stay Global.
+            bool weapon = WeaponMode && IsPerDefOption(opt);
+            var rule = new AttributeRule { kind = opt.kind, weaponScope = weapon };
             switch (opt.kind)
             {
                 case RuleAttributeKind.Numeric: rule.stat = opt.stat; break;
@@ -603,10 +639,10 @@ namespace ApparelPolicyBuilder
                 case RuleAttributeKind.SpecialFilter: rule.specialFilter = opt.specialFilter; break;
             }
             working.rules.Add(rule);
-            collapsedScopes.Remove("global");
+            collapsedScopes.Remove(weapon ? "weapon" : "global");
         }
 
-        private static AttributeOption OptionFor(AttributeRule rule) => AttributeCache.OptionFor(rule.attrKey);
+        private static AttributeOption OptionFor(AttributeRule rule) => AttributeCache.OptionFor(rule.attrKey, rule.weaponScope);
 
         private static string CategoricalValueLabel(AttributeRule rule)
         {

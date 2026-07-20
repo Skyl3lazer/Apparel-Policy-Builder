@@ -13,6 +13,10 @@
   <APB.Global>Global</APB.Global>
   <APB.GlobalExceptUtility>Global except utility</APB.GlobalExceptUtility>
   <APB.UtilityOnly>Utility only</APB.UtilityOnly>
+  <APB.WeaponScope>Weapon</APB.WeaponScope>
+  <APB.WeaponScopeTip>Applies to weapons only; it can't be limited to an apparel layer.</APB.WeaponScopeTip>
+  <APB.PaletteApparel>Apparel</APB.PaletteApparel>
+  <APB.PaletteWeapons>Weapons</APB.PaletteWeapons>
   <APB.NoRules>No rules yet.\nPick an attribute on the left to add one.</APB.NoRules>
   <APB.NoRulesExpression>Or create an expression to hold complex rules.</APB.NoRulesExpression>
   <APB.NoRulesAdvancedHint>Enable advanced expressions in the mod settings to create more complex statements.</APB.NoRulesAdvancedHint>

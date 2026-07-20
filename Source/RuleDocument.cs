@@ -48,9 +48,13 @@ namespace ApparelPolicyBuilder
                     if (r.stat == null) return false;
                     break;
                 case RuleAttributeKind.Categorical:
+                {
                     if (attrKey.NullOrEmpty() || categoricalValue == null) return false;
-                    if (AttributeCache.Options != null && AttributeCache.OptionFor(attrKey) == null) return false;
+                    // A weapon categorical rule is dormant, not gone, when Auto Arm is absent - keep it inert.
+                    bool universeActive = !weaponScope || AttributeCache.WeaponsActive;
+                    if (universeActive && AttributeCache.Options != null && AttributeCache.OptionFor(attrKey, weaponScope) == null) return false;
                     break;
+                }
                 case RuleAttributeKind.Material:
                     r.materialStuff = DefDatabase<ThingDef>.GetNamedSilentFail(materialStuff);
                     if (r.materialStuff == null) return false;

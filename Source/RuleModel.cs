@@ -18,6 +18,7 @@ namespace ApparelPolicyBuilder
         public RulePolarity polarity = RulePolarity.Forbid;
         public bool exceptUtility;
         public bool utilityOnly;
+        public bool weaponScope; // keeps weapon rules disjoint from apparel; per-def kinds only
         public RuleAttributeKind kind = RuleAttributeKind.Numeric;
         public NumericMode numericMode = NumericMode.Negative;
         public float threshold; // also the HitPoints fraction for that facet
@@ -31,6 +32,7 @@ namespace ApparelPolicyBuilder
             polarity = src.polarity;
             exceptUtility = src.exceptUtility;
             utilityOnly = src.utilityOnly;
+            weaponScope = src.weaponScope;
             kind = src.kind;
             numericMode = src.numericMode;
             threshold = src.threshold;
@@ -45,6 +47,7 @@ namespace ApparelPolicyBuilder
             Scribe_Values.Look(ref polarity, "polarity", RulePolarity.Forbid);
             Scribe_Values.Look(ref exceptUtility, "exceptUtility", false);
             Scribe_Values.Look(ref utilityOnly, "utilityOnly", false);
+            Scribe_Values.Look(ref weaponScope, "weaponScope", false);
             Scribe_Values.Look(ref kind, "kind", RuleAttributeKind.Numeric);
             Scribe_Values.Look(ref numericMode, "numericMode", NumericMode.Negative);
             Scribe_Values.Look(ref threshold, "threshold", 0f);
@@ -167,16 +170,29 @@ namespace ApparelPolicyBuilder
             AttributeCache.EnsureBuilt();
             ThingFilter filter = policy.filter;
 
-            foreach (ApparelAttributeInfo info in AttributeCache.Apparel)
+            ApplyPerDefPass(filter, AttributeCache.Apparel, weapon: false, evalStuff);
+            // Leave weapons untouched until the user authors a weapon rule, so foreign weapon config survives.
+            if (AttributeCache.WeaponsActive && rules.Any(r => r.IsPerDef && r.weaponScope))
+                ApplyPerDefPass(filter, AttributeCache.Weapons, weapon: true, evalStuff);
+
+            ApplyMaterialPass(filter);
+            ApplyRangePasses(filter);
+            ApplySpecialFilterPass(filter);
+        }
+
+        private void ApplyPerDefPass(ThingFilter filter, List<ApparelAttributeInfo> universe, bool weapon, ThingDef evalStuff)
+        {
+            foreach (ApparelAttributeInfo info in universe)
             {
                 bool allow = true;
                 for (int i = 0; i < rules.Count; i++)
                 {
                     AttributeRule rule = rules[i];
-                    if (!rule.IsPerDef || IsStuffCategoryForbid(rule)) continue;
+                    if (!rule.IsPerDef || rule.weaponScope != weapon || IsStuffCategoryForbid(rule)) continue;
                     if (rule.IsValid && rule.Disqualifies(info, evalStuff)) { allow = false; break; }
                 }
-                if (allow)
+                // Expression Rules never carry a weapon scope, so they only judge apparel.
+                if (allow && !weapon)
                     for (int i = 0; i < expressionRules.Count; i++)
                     {
                         ExpressionRule er = expressionRules[i];
@@ -185,18 +201,15 @@ namespace ApparelPolicyBuilder
                 filter.SetAllow(info.def, allow);
             }
 
-            ApplyIngredientCategoryPass(filter);
-            ApplyMaterialPass(filter);
-            ApplyRangePasses(filter);
-            ApplySpecialFilterPass(filter);
+            ApplyIngredientCategoryPass(filter, universe, weapon);
         }
 
         // A stuff category is one of several materials a piece can be made from, so forbidding it disqualifies a piece only when every one of its stuff categories is forbidden.
-        private void ApplyIngredientCategoryPass(ThingFilter filter)
+        private void ApplyIngredientCategoryPass(ThingFilter filter, List<ApparelAttributeInfo> universe, bool weapon)
         {
             Dictionary<string, List<AttributeRule>> forbidsByAttr = null;
             foreach (AttributeRule rule in rules)
-                if (IsStuffCategoryForbid(rule))
+                if (IsStuffCategoryForbid(rule) && rule.weaponScope == weapon)
                 {
                     forbidsByAttr ??= new Dictionary<string, List<AttributeRule>>();
                     if (!forbidsByAttr.TryGetValue(rule.attrKey, out List<AttributeRule> list))
@@ -205,7 +218,7 @@ namespace ApparelPolicyBuilder
                 }
             if (forbidsByAttr == null) return;
 
-            foreach (ApparelAttributeInfo info in AttributeCache.Apparel)
+            foreach (ApparelAttributeInfo info in universe)
                 foreach (KeyValuePair<string, List<AttributeRule>> kv in forbidsByAttr)
                     if (AllStuffCategoriesForbidden(info, kv.Key, kv.Value))
                     {
