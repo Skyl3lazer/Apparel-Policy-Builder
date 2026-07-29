@@ -44,12 +44,12 @@ namespace ApparelPolicyBuilder
              || numericMode == NumericMode.LessThan
              || numericMode == NumericMode.EqualTo);
 
-        public bool Matches(ApparelAttributeInfo info, ThingDef evalStuff)
+        public bool Matches(ApparelAttributeInfo info, MaterialLens lens)
         {
             if (kind == RuleAttributeKind.Categorical)
                 return info.HasCategorical(attrKey, categoricalValue);
             if (stat == null) return false;
-            return ConditionEval.NumericMatches(numericMode, info.GetStatValue(stat, evalStuff), threshold);
+            return ConditionEval.NumericMatches(numericMode, info.GetStatValue(stat, lens), threshold);
         }
 
         public Condition Clone() => (Condition)MemberwiseClone();
@@ -67,7 +67,7 @@ namespace ApparelPolicyBuilder
 
     public abstract class Expression : IExposable
     {
-        public abstract bool Evaluate(ApparelAttributeInfo info, ThingDef evalStuff);
+        public abstract bool Evaluate(ApparelAttributeInfo info, MaterialLens lens);
         public abstract bool IsValid { get; }
         public abstract Expression Clone();
         public abstract void ExposeData();
@@ -77,8 +77,8 @@ namespace ApparelPolicyBuilder
     {
         public Condition condition = new Condition();
 
-        public override bool Evaluate(ApparelAttributeInfo info, ThingDef evalStuff)
-            => condition != null && condition.Matches(info, evalStuff);
+        public override bool Evaluate(ApparelAttributeInfo info, MaterialLens lens)
+            => condition != null && condition.Matches(info, lens);
 
         public override bool IsValid => condition != null && condition.IsValid;
 
@@ -91,8 +91,8 @@ namespace ApparelPolicyBuilder
     {
         public Expression child;
 
-        public override bool Evaluate(ApparelAttributeInfo info, ThingDef evalStuff)
-            => child != null && !child.Evaluate(info, evalStuff);
+        public override bool Evaluate(ApparelAttributeInfo info, MaterialLens lens)
+            => child != null && !child.Evaluate(info, lens);
 
         public override bool IsValid => child != null && child.IsValid;
 
@@ -106,16 +106,16 @@ namespace ApparelPolicyBuilder
         public bool any; // false = AND (all of), true = OR (any of)
         public List<Expression> children = new List<Expression>();
 
-        public override bool Evaluate(ApparelAttributeInfo info, ThingDef evalStuff)
+        public override bool Evaluate(ApparelAttributeInfo info, MaterialLens lens)
         {
             if (any)
             {
                 foreach (Expression c in children)
-                    if (c != null && c.Evaluate(info, evalStuff)) return true;
+                    if (c != null && c.Evaluate(info, lens)) return true;
                 return false;
             }
             foreach (Expression c in children)
-                if (c == null || !c.Evaluate(info, evalStuff)) return false;
+                if (c == null || !c.Evaluate(info, lens)) return false;
             return true;
         }
 
@@ -151,8 +151,8 @@ namespace ApparelPolicyBuilder
         public bool InScope(ApparelAttributeInfo info)
             => weaponScope || AttributeRule.IsInScope(layerScope, exceptUtility, utilityOnly, info);
 
-        public bool Disqualifies(ApparelAttributeInfo info, ThingDef evalStuff)
-            => InScope(info) && !root.Evaluate(info, evalStuff);
+        public bool Disqualifies(ApparelAttributeInfo info, MaterialLens lens)
+            => InScope(info) && !root.Evaluate(info, lens);
 
         public ExpressionRule Clone() => new ExpressionRule
         {

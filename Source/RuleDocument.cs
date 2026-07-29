@@ -224,6 +224,7 @@ namespace ApparelPolicyBuilder
     public class RuleDocument : IExposable
     {
         public string name;
+        public MaterialLensMode evalMode = MaterialLensMode.Multiplier;
         public string evalStuff;
         public List<PortableRule> rules = new List<PortableRule>();
         public List<PortableExpressionRule> expressionRules = new List<PortableExpressionRule>();
@@ -232,7 +233,7 @@ namespace ApparelPolicyBuilder
 
         public static RuleDocument From(string name, Ruleset rs)
         {
-            var doc = new RuleDocument { name = name, evalStuff = rs.evalStuff?.defName };
+            var doc = new RuleDocument { name = name, evalMode = rs.evalMode, evalStuff = rs.evalStuff?.defName };
             foreach (AttributeRule r in rs.rules) doc.rules.Add(PortableRule.From(r));
             foreach (ExpressionRule e in rs.expressionRules) doc.expressionRules.Add(PortableExpressionRule.From(e));
             return doc;
@@ -242,9 +243,13 @@ namespace ApparelPolicyBuilder
         {
             skipped = 0;
             // A missing lens material falls back to the multiplier; unlike a rule, it costs the document nothing.
+            ThingDef lensStuff = evalStuff.NullOrEmpty() ? null : DefDatabase<ThingDef>.GetNamedSilentFail(evalStuff);
             var rs = new Ruleset
             {
-                evalStuff = evalStuff.NullOrEmpty() ? null : DefDatabase<ThingDef>.GetNamedSilentFail(evalStuff)
+                evalMode = evalMode == MaterialLensMode.Material && lensStuff == null
+                    ? MaterialLensMode.Multiplier
+                    : evalMode,
+                evalStuff = lensStuff
             };
             foreach (PortableRule pr in rules)
             {
@@ -262,6 +267,7 @@ namespace ApparelPolicyBuilder
         public void ExposeData()
         {
             Scribe_Values.Look(ref name, "name");
+            Scribe_Values.Look(ref evalMode, "evalMode", MaterialLensMode.Multiplier);
             Scribe_Values.Look(ref evalStuff, "evalStuff");
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
             Scribe_Collections.Look(ref expressionRules, "expressionRules", LookMode.Deep);

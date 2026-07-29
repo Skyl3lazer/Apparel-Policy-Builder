@@ -95,10 +95,13 @@
   <APB.Settings.DefaultUtility>Default: utility</APB.Settings.DefaultUtility>
   <APB.Settings.DefaultNormal>Default: normal</APB.Settings.DefaultNormal>
 
-  <!-- Stuffable evaluation lens -->
+  <!-- Material lens -->
   <APB.EvalAs>Evaluate stuffables as:</APB.EvalAs>
-  <APB.EvalAsTip>How to read armor and insulation for stuffable apparel. "Multiplier" uses the material-effect multiplier so any piece that can take armor/insulation counts. Pick a material to instead use the actual value that material would give (only affects apparel that can be made from it).</APB.EvalAsTip>
+  <APB.EvalAsTip>How to read attributes that depend on what a piece is made of. "Highest" and "Lowest" use the best and worst material the piece allows. "Typical" uses what you will realistically get with an average random material. Pick a material to read the piece as if made of it. "Multiplier" is how much of the stuffable value apparel keeps.</APB.EvalAsTip>
   <APB.Multiplier>Multiplier</APB.Multiplier>
+  <APB.Lens.Lowest>Lowest</APB.Lens.Lowest>
+  <APB.Lens.Typical>Typical</APB.Lens.Typical>
+  <APB.Lens.Highest>Highest</APB.Lens.Highest>
 
   <!-- Bottom buttons -->
   <APB.Apply>Apply</APB.Apply>

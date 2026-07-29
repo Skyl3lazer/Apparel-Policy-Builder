@@ -278,9 +278,7 @@ namespace ApparelPolicyBuilder
 
             const float ddWidth = 150f;
             var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
-            string ddLabel = working.evalStuff != null
-                ? working.evalStuff.LabelCap.ToString()
-                : "APB.Multiplier".Translate().ToString();
+            string ddLabel = LensLabel(working.evalMode, working.evalStuff);
             TooltipHandler.TipRegionByKey(ddRect, "APB.EvalAsTip");
             if (Widgets.ButtonText(ddRect, ddLabel))
                 OpenMaterialLensMenu();
@@ -727,14 +725,40 @@ namespace ApparelPolicyBuilder
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("APB.Multiplier".Translate(), () => working.evalStuff = null)
+                Mode(MaterialLensMode.Highest),
+                Mode(MaterialLensMode.Typical),
+                Mode(MaterialLensMode.Lowest),
+                Mode(MaterialLensMode.Multiplier)
             };
             foreach (ThingDef material in AttributeCache.StuffMaterials)
             {
                 ThingDef captured = material;
-                options.Add(new FloatMenuOption(material.LabelCap, () => working.evalStuff = captured));
+                options.Add(new FloatMenuOption(material.LabelCap, () =>
+                {
+                    working.evalMode = MaterialLensMode.Material;
+                    working.evalStuff = captured;
+                }));
             }
             Find.WindowStack.Add(new FloatMenu(options));
+
+            FloatMenuOption Mode(MaterialLensMode m)
+                => new FloatMenuOption(LensLabel(m, null), () =>
+                {
+                    working.evalMode = m;
+                    working.evalStuff = null;
+                });
+        }
+
+        private static string LensLabel(MaterialLensMode mode, ThingDef stuff)
+        {
+            switch (mode)
+            {
+                case MaterialLensMode.Lowest: return "APB.Lens.Lowest".Translate();
+                case MaterialLensMode.Typical: return "APB.Lens.Typical".Translate();
+                case MaterialLensMode.Highest: return "APB.Lens.Highest".Translate();
+                case MaterialLensMode.Material when stuff != null: return stuff.LabelCap;
+                default: return "APB.Multiplier".Translate();
+            }
         }
     }
 }
