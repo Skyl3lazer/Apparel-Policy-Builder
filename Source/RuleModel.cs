@@ -154,35 +154,36 @@ namespace ApparelPolicyBuilder
     {
         public List<AttributeRule> rules = new List<AttributeRule>();
         public List<ExpressionRule> expressionRules = new List<ExpressionRule>();
+        public ThingDef evalStuff; // null = evaluate stuff-powered stats by the material multiplier
 
         public bool IsEmpty => rules.Count == 0 && expressionRules.Count == 0;
 
         public Ruleset Clone()
         {
-            var copy = new Ruleset();
+            var copy = new Ruleset { evalStuff = evalStuff };
             foreach (AttributeRule r in rules) copy.rules.Add(r.Clone());
             foreach (ExpressionRule e in expressionRules) copy.expressionRules.Add(e.Clone());
             return copy;
         }
 
-        public void ApplyTo(ApparelPolicy policy, ThingDef evalStuff)
+        public void ApplyTo(ApparelPolicy policy)
         {
             AttributeCache.EnsureBuilt();
             ThingFilter filter = policy.filter;
 
-            ApplyPerDefPass(filter, AttributeCache.Apparel, weapon: false, evalStuff);
+            ApplyPerDefPass(filter, AttributeCache.Apparel, weapon: false);
             // Leave weapons untouched until the user authors a weapon rule, so foreign weapon config survives.
             bool weaponIntent = rules.Any(r => r.IsPerDef && r.weaponScope)
                 || expressionRules.Any(e => e.weaponScope);
             if (AttributeCache.WeaponsActive && weaponIntent)
-                ApplyPerDefPass(filter, AttributeCache.Weapons, weapon: true, evalStuff);
+                ApplyPerDefPass(filter, AttributeCache.Weapons, weapon: true);
 
             ApplyMaterialPass(filter);
             ApplyRangePasses(filter);
             ApplySpecialFilterPass(filter);
         }
 
-        private void ApplyPerDefPass(ThingFilter filter, List<ApparelAttributeInfo> universe, bool weapon, ThingDef evalStuff)
+        private void ApplyPerDefPass(ThingFilter filter, List<ApparelAttributeInfo> universe, bool weapon)
         {
             foreach (ApparelAttributeInfo info in universe)
             {
@@ -319,8 +320,15 @@ namespace ApparelPolicyBuilder
         {
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
             Scribe_Collections.Look(ref expressionRules, "expressionRules", LookMode.Deep);
+
+            // By defName, not Scribe_Defs: losing the lens material degrades to the multiplier rather than erroring.
+            string lens = evalStuff?.defName;
+            Scribe_Values.Look(ref lens, "evalStuff");
+
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
+                evalStuff = lens.NullOrEmpty() ? null : DefDatabase<ThingDef>.GetNamedSilentFail(lens);
+
                 if (rules == null) rules = new List<AttributeRule>();
                 else rules.RemoveAll(r => r == null || !r.IsValid); // a def a rule points at can vanish when its mod is removed
 

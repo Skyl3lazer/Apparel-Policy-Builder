@@ -11,12 +11,16 @@ namespace ApparelPolicyBuilder
 
         public GameComponent_ApparelPolicyBuilder(Game game) { }
 
+        // Mod-settings policies live outside the outfit database and all reuse id 0, so keying them here would alias real rules.
+        public static bool CanPersist(ApparelPolicy policy)
+            => policy != null && (Current.Game?.outfitDatabase.AllOutfits.Contains(policy) ?? false);
+
         public Ruleset GetRuleset(ApparelPolicy policy)
-            => policy != null && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
+            => CanPersist(policy) && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
 
         public void Store(ApparelPolicy policy, Ruleset ruleset)
         {
-            if (policy == null) return;
+            if (!CanPersist(policy)) return;
             if (ruleset == null || ruleset.IsEmpty) rulesets.Remove(policy.id);
             else rulesets[policy.id] = ruleset;
         }

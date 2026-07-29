@@ -224,6 +224,7 @@ namespace ApparelPolicyBuilder
     public class RuleDocument : IExposable
     {
         public string name;
+        public string evalStuff;
         public List<PortableRule> rules = new List<PortableRule>();
         public List<PortableExpressionRule> expressionRules = new List<PortableExpressionRule>();
 
@@ -231,7 +232,7 @@ namespace ApparelPolicyBuilder
 
         public static RuleDocument From(string name, Ruleset rs)
         {
-            var doc = new RuleDocument { name = name };
+            var doc = new RuleDocument { name = name, evalStuff = rs.evalStuff?.defName };
             foreach (AttributeRule r in rs.rules) doc.rules.Add(PortableRule.From(r));
             foreach (ExpressionRule e in rs.expressionRules) doc.expressionRules.Add(PortableExpressionRule.From(e));
             return doc;
@@ -240,7 +241,11 @@ namespace ApparelPolicyBuilder
         public Ruleset ToRuleset(out int skipped)
         {
             skipped = 0;
-            var rs = new Ruleset();
+            // A missing lens material falls back to the multiplier; unlike a rule, it costs the document nothing.
+            var rs = new Ruleset
+            {
+                evalStuff = evalStuff.NullOrEmpty() ? null : DefDatabase<ThingDef>.GetNamedSilentFail(evalStuff)
+            };
             foreach (PortableRule pr in rules)
             {
                 if (pr.TryResolve(out AttributeRule r)) rs.rules.Add(r);
@@ -257,6 +262,7 @@ namespace ApparelPolicyBuilder
         public void ExposeData()
         {
             Scribe_Values.Look(ref name, "name");
+            Scribe_Values.Look(ref evalStuff, "evalStuff");
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
             Scribe_Collections.Look(ref expressionRules, "expressionRules", LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.LoadingVars)

@@ -16,25 +16,27 @@ namespace ApparelPolicyBuilder
         }
     }
 
-    [HarmonyPatch(typeof(Dialog_ManagePolicies<ApparelPolicy>), "DoWindowContents")]
+    // Not DoWindowContents: Mono shares one body across all Dialog_ManagePolicies<T>, so only the first mod to patch one wins.
+    [HarmonyPatch(typeof(Dialog_ManageApparelPolicies), "DoContentsRect")]
     public static class Patch_ApparelPolicyDialog_Button
     {
         private const float ButtonWidth = 168f;
         private const float ButtonHeight = 28f;
         private const float CloseXClearance = 24f;
+        private const float TitleRowY = 2f;
 
-        // DoWindowContents is shared across every Dialog_ManagePolicies<T> under Mono, so gate on the apparel dialog.
-        public static void Postfix(Rect inRect, object __instance, object ___policyInt)
+        public static void Postfix(Rect rect, ApparelPolicy ___policyInt)
         {
-            if (!(__instance is Dialog_ManageApparelPolicies) || !(___policyInt is ApparelPolicy policy)) return;
+            if (___policyInt == null) return;
 
-            var buttonRect = new Rect(inRect.xMax - ButtonWidth - CloseXClearance, inRect.y + 2f, ButtonWidth, ButtonHeight);
+            // rect shares the window's right edge, and the dialog draws in a zero-origin group.
+            var buttonRect = new Rect(rect.xMax - ButtonWidth - CloseXClearance, TitleRowY, ButtonWidth, ButtonHeight);
             TooltipHandler.TipRegionByKey(buttonRect, "APB.OpenFilterTip");
             if (!Widgets.ButtonText(buttonRect, "APB.OpenFilter".Translate())) return;
 
             var existing = Find.WindowStack.WindowOfType<Dialog_ApparelPolicyBuilder>();
             if (existing != null) existing.Close();
-            else Find.WindowStack.Add(new Dialog_ApparelPolicyBuilder(policy));
+            else Find.WindowStack.Add(new Dialog_ApparelPolicyBuilder(___policyInt));
         }
     }
 

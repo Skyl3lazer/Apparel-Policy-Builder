@@ -22,6 +22,7 @@ namespace ApparelPolicyBuilder
         private static Ruleset clipboard;
 
         private readonly ApparelPolicy policy;
+        private readonly bool canPersist;
         private Ruleset working;
         private readonly List<OptionGroup> apparelGroups;
         private readonly List<OptionGroup> weaponGroups;
@@ -32,7 +33,6 @@ namespace ApparelPolicyBuilder
         private string searchText = "";
         private Vector2 leftScroll;
         private Vector2 rightScroll;
-        private ThingDef evalStuff; // null = evaluate stuff-powered stats by the material multiplier
         private readonly Dictionary<AttributeRule, string> valueBuffers = new Dictionary<AttributeRule, string>();
 
         public override Vector2 InitialSize => new Vector2(940f, 590f);
@@ -40,6 +40,7 @@ namespace ApparelPolicyBuilder
         public Dialog_ApparelPolicyBuilder(ApparelPolicy policy)
         {
             this.policy = policy;
+            canPersist = GameComponent_ApparelPolicyBuilder.CanPersist(policy);
             AttributeCache.EnsureBuilt();
 
             Ruleset stored = GameComponent_ApparelPolicyBuilder.Instance?.GetRuleset(policy);
@@ -279,7 +280,9 @@ namespace ApparelPolicyBuilder
 
             const float ddWidth = 150f;
             var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
-            string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "APB.Multiplier".Translate().ToString();
+            string ddLabel = working.evalStuff != null
+                ? working.evalStuff.LabelCap.ToString()
+                : "APB.Multiplier".Translate().ToString();
             TooltipHandler.TipRegionByKey(ddRect, "APB.EvalAsTip");
             if (Widgets.ButtonText(ddRect, ddLabel))
                 OpenMaterialLensMenu();
@@ -578,11 +581,11 @@ namespace ApparelPolicyBuilder
             if (Widgets.ButtonText(applyRect, "APB.Apply".Translate()))
             {
                 Commit();
-                working.ApplyTo(policy, evalStuff);
+                working.ApplyTo(policy);
                 Close();
             }
-            TooltipHandler.TipRegionByKey(saveRect, "APB.SaveTip");
-            if (Widgets.ButtonText(saveRect, "APB.Save".Translate()))
+            TooltipHandler.TipRegionByKey(saveRect, canPersist ? "APB.SaveTip" : "APB.SaveUnavailableTip");
+            if (Widgets.ButtonText(saveRect, "APB.Save".Translate(), active: canPersist))
             {
                 Commit();
                 Close();
@@ -726,12 +729,12 @@ namespace ApparelPolicyBuilder
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("APB.Multiplier".Translate(), () => evalStuff = null)
+                new FloatMenuOption("APB.Multiplier".Translate(), () => working.evalStuff = null)
             };
             foreach (ThingDef material in AttributeCache.StuffMaterials)
             {
                 ThingDef captured = material;
-                options.Add(new FloatMenuOption(material.LabelCap, () => evalStuff = captured));
+                options.Add(new FloatMenuOption(material.LabelCap, () => working.evalStuff = captured));
             }
             Find.WindowStack.Add(new FloatMenu(options));
         }
