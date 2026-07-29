@@ -56,11 +56,10 @@ namespace ApparelPolicyBuilder
     {
         public static void Postfix(ApparelPolicy __instance, Policy other)
         {
-            if (!(other is ApparelPolicy source)) return;
-            GameComponent_ApparelPolicyBuilder gc = GameComponent_ApparelPolicyBuilder.Instance;
-            if (gc == null) return;
-            Ruleset rs = gc.GetRuleset(source);
-            if (rs != null && !rs.IsEmpty) gc.Store(__instance, rs.Clone());
+            // Colony-owned source only. Seeding a new colony copies the other way, before there is a game to read.
+            if (!(other is ApparelPolicy source) || !RulesetStore.IsColonyOwned(source)) return;
+            Ruleset rs = RulesetStore.Get(source);
+            if (rs != null && !rs.IsEmpty) RulesetStore.Set(__instance, rs.Clone());
         }
     }
 }

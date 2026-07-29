@@ -22,7 +22,6 @@ namespace ApparelPolicyBuilder
         private static Ruleset clipboard;
 
         private readonly ApparelPolicy policy;
-        private readonly bool canPersist;
         private Ruleset working;
         private readonly List<OptionGroup> apparelGroups;
         private readonly List<OptionGroup> weaponGroups;
@@ -40,10 +39,9 @@ namespace ApparelPolicyBuilder
         public Dialog_ApparelPolicyBuilder(ApparelPolicy policy)
         {
             this.policy = policy;
-            canPersist = GameComponent_ApparelPolicyBuilder.CanPersist(policy);
             AttributeCache.EnsureBuilt();
 
-            Ruleset stored = GameComponent_ApparelPolicyBuilder.Instance?.GetRuleset(policy);
+            Ruleset stored = RulesetStore.Get(policy);
             working = stored != null ? stored.Clone() : new Ruleset();
 
             apparelGroups = BuildGroups(AttributeCache.Options);
@@ -584,8 +582,8 @@ namespace ApparelPolicyBuilder
                 working.ApplyTo(policy);
                 Close();
             }
-            TooltipHandler.TipRegionByKey(saveRect, canPersist ? "APB.SaveTip" : "APB.SaveUnavailableTip");
-            if (Widgets.ButtonText(saveRect, "APB.Save".Translate(), active: canPersist))
+            TooltipHandler.TipRegionByKey(saveRect, "APB.SaveTip");
+            if (Widgets.ButtonText(saveRect, "APB.Save".Translate()))
             {
                 Commit();
                 Close();
@@ -595,7 +593,7 @@ namespace ApparelPolicyBuilder
         }
 
         private void Commit()
-            => GameComponent_ApparelPolicyBuilder.Instance?.Store(policy, working.Clone());
+            => RulesetStore.Set(policy, working.Clone());
 
         public bool WorkingIsEmpty => working.rules.Count == 0;
         public Ruleset WorkingSnapshot() => working.Clone();

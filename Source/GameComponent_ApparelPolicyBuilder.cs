@@ -11,16 +11,13 @@ namespace ApparelPolicyBuilder
 
         public GameComponent_ApparelPolicyBuilder(Game game) { }
 
-        // Mod-settings policies live outside the outfit database and all reuse id 0, so keying them here would alias real rules.
-        public static bool CanPersist(ApparelPolicy policy)
-            => policy != null && (Current.Game?.outfitDatabase.AllOutfits.Contains(policy) ?? false);
-
+        // Foreign Policies reuse id 0, so they must never be keyed here. RulesetStore routes them to mod settings.
         public Ruleset GetRuleset(ApparelPolicy policy)
-            => CanPersist(policy) && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
+            => RulesetStore.IsColonyOwned(policy) && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
 
         public void Store(ApparelPolicy policy, Ruleset ruleset)
         {
-            if (!CanPersist(policy)) return;
+            if (!RulesetStore.IsColonyOwned(policy)) return;
             if (ruleset == null || ruleset.IsEmpty) rulesets.Remove(policy.id);
             else rulesets[policy.id] = ruleset;
         }
@@ -28,6 +25,18 @@ namespace ApparelPolicyBuilder
         public void Remove(ApparelPolicy policy)
         {
             if (policy != null) rulesets.Remove(policy.id);
+        }
+
+        // Label is the only thread back to the settings store, and CopyFrom is too early: seeding runs before this exists.
+        public override void StartedNewGame()
+        {
+            AttributeCache.EnsureBuilt();
+            foreach (ApparelPolicy policy in Current.Game.outfitDatabase.AllOutfits)
+            {
+                if (rulesets.ContainsKey(policy.id)) continue;
+                Ruleset seeded = ApparelPolicyBuilderMod.GetForeignRuleset(policy.label);
+                if (seeded != null && !seeded.IsEmpty) rulesets[policy.id] = seeded;
+            }
         }
 
         public override void ExposeData()

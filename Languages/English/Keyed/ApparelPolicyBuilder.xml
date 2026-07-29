@@ -105,7 +105,6 @@
   <APB.ApplyTip>Recompute the policy from scratch: allow all apparel, then remove every piece disqualified by a rule. Overwrites the policy's current toggles, and saves these rules.</APB.ApplyTip>
   <APB.Save>Save</APB.Save>
   <APB.SaveTip>Save these rules without changing the policy's current apparel toggles.</APB.SaveTip>
-  <APB.SaveUnavailableTip>This policy is not part of a colony, so rules cannot be kept for it. Use Apply to write them into the policy's apparel toggles.</APB.SaveUnavailableTip>
   <APB.Cancel>Cancel</APB.Cancel>
 
 </LanguageData>
