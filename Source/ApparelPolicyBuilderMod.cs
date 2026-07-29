@@ -9,17 +9,21 @@ namespace ApparelPolicyBuilder
     public class ApparelPolicyBuilderSettings : ModSettings
     {
         public List<RuleDocument> documents = new List<RuleDocument>();
+        // Portable form so a briefly disabled mod cannot erase rules.
+        public List<RuleDocument> foreignRulesets = new List<RuleDocument>();
         public Dictionary<string, bool> layerUtilityOverrides = new Dictionary<string, bool>();
         public bool advancedExpressions;
 
         public override void ExposeData()
         {
             Scribe_Collections.Look(ref documents, "documents", LookMode.Deep);
+            Scribe_Collections.Look(ref foreignRulesets, "foreignRulesets", LookMode.Deep);
             Scribe_Collections.Look(ref layerUtilityOverrides, "layerUtilityOverrides", LookMode.Value, LookMode.Value);
             Scribe_Values.Look(ref advancedExpressions, "advancedExpressions", false);
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
                 if (documents == null) documents = new List<RuleDocument>();
+                if (foreignRulesets == null) foreignRulesets = new List<RuleDocument>();
                 if (layerUtilityOverrides == null) layerUtilityOverrides = new Dictionary<string, bool>();
             }
         }
@@ -78,6 +82,23 @@ namespace ApparelPolicyBuilder
 
         private static bool Matches(RuleDocument d, string name)
             => string.Equals(d.name, name, StringComparison.OrdinalIgnoreCase);
+
+        public static Ruleset GetForeignRuleset(string label)
+        {
+            RuleDocument doc = label.NullOrEmpty()
+                ? null
+                : instance?.settings.foreignRulesets.FirstOrDefault(d => Matches(d, label));
+            return doc?.ToRuleset(out _);
+        }
+
+        public static void SaveForeignRuleset(string label, Ruleset rs)
+        {
+            if (instance == null || label.NullOrEmpty()) return;
+            List<RuleDocument> stored = instance.settings.foreignRulesets;
+            stored.RemoveAll(d => Matches(d, label));
+            if (rs != null && !rs.IsEmpty) stored.Add(RuleDocument.From(label, rs));
+            instance.WriteSettings();
+        }
 
         // ---- Utility-layer settings ----
 

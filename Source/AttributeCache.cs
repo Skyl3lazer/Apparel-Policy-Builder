@@ -6,32 +6,64 @@ using Verse;
 
 namespace ApparelPolicyBuilder
 {
+    public readonly struct LensValues
+    {
+        public readonly float lowest;
+        public readonly float typical;
+        public readonly float highest;
+
+        public LensValues(float lowest, float typical, float highest)
+        {
+            this.lowest = lowest;
+            this.typical = typical;
+            this.highest = highest;
+        }
+    }
+
     public class ApparelAttributeInfo
     {
         public readonly ThingDef def;
         public readonly HashSet<ApparelLayerDef> Layers;
         private readonly Dictionary<StatDef, float> statValues;
+        private readonly Dictionary<StatDef, LensValues> lensValues; // null for apparel not made from stuff
         private readonly Dictionary<string, HashSet<string>> categoricalTokens;
 
         public ApparelAttributeInfo(ThingDef def, HashSet<ApparelLayerDef> layers,
-            Dictionary<StatDef, float> statValues, Dictionary<string, HashSet<string>> categoricalTokens)
+            Dictionary<StatDef, float> statValues, Dictionary<string, HashSet<string>> categoricalTokens,
+            Dictionary<StatDef, LensValues> lensValues = null)
         {
             this.def = def;
             this.Layers = layers;
             this.statValues = statValues;
             this.categoricalTokens = categoricalTokens;
+            this.lensValues = lensValues;
         }
 
         public float GetStatValue(StatDef stat)
             => statValues.TryGetValue(stat, out float v) ? v : 0f;
 
-        // A chosen material reads stuff-powered stats at that material instead of by the multiplier.
-        public float GetStatValue(StatDef stat, ThingDef material)
+        public float GetStatValue(StatDef stat, MaterialLens lens)
         {
-            if (material != null && AttributeCache.IsStuffPowered(stat) && def.MadeFromStuff
-                && material.stuffProps != null && material.stuffProps.CanMake(def))
-                return def.GetStatValueAbstract(stat, material);
-            return GetStatValue(stat);
+            switch (lens.mode)
+            {
+                case MaterialLensMode.Material:
+                    // A chosen material reads stuff-powered stats at that material instead of by the multiplier.
+                    if (lens.IsNamedMaterial && AttributeCache.IsStuffPowered(stat) && def.MadeFromStuff
+                        && lens.stuff.stuffProps != null && lens.stuff.stuffProps.CanMake(def))
+                        return def.GetStatValueAbstract(stat, lens.stuff);
+                    return GetStatValue(stat);
+
+                case MaterialLensMode.Lowest:
+                case MaterialLensMode.Typical:
+                case MaterialLensMode.Highest:
+                    if (lensValues == null || !lensValues.TryGetValue(stat, out LensValues lv))
+                        return GetStatValue(stat);
+                    if (lens.mode == MaterialLensMode.Lowest) return lv.lowest;
+                    return lens.mode == MaterialLensMode.Typical ? lv.typical : lv.highest;
+
+                default:
+                    return GetStatValue(stat);
+            }
         }
 
         public bool HasCategorical(string attrKey, string token)
@@ -199,8 +231,9 @@ namespace ApparelPolicyBuilder
                 : new HashSet<ApparelLayerDef>();
             Dictionary<StatDef, float> statValues = ComputeStatValues(def);
             var catTokens = DiscoverCategorical(def, u.catOptions, u.catValueLabels);
+            Dictionary<StatDef, LensValues> lensValues = ComputeLensValues(def, statValues);
 
-            u.infos.Add(new ApparelAttributeInfo(def, layers, statValues, catTokens));
+            u.infos.Add(new ApparelAttributeInfo(def, layers, statValues, catTokens, lensValues));
             u.layerSet.UnionWith(layers);
             // Offer a stat only when some loaded thing actually carries a non-default value for it.
             foreach (KeyValuePair<StatDef, float> kv in statValues)
@@ -453,5 +486,108 @@ namespace ApparelPolicyBuilder
 
         private static void Add(Dictionary<StatDef, float> dict, StatDef stat, float value)
             => dict[stat] = dict.TryGetValue(stat, out float existing) ? existing + value : value;
+
+        private const float TrimFraction = 0.10f;
+
+        // Unlike the multiplier gauge, these land on the same scale as non-stuffable apparel, so a threshold spans both.
+        private static Dictionary<StatDef, LensValues> ComputeLensValues(ThingDef def, Dictionary<StatDef, float> statValues)
+        {
+            if (!def.MadeFromStuff) return null;
+            List<ThingDef> allowed = GenStuff.AllowedStuffsFor(def).ToList();
+            if (allowed.Count == 0) return null;
+
+            List<List<int>> groups = BuildCategoryGroups(def, allowed);
+            var offsets = new Dictionary<StatDef, float>();
+            if (def.equippedStatOffsets != null)
+                foreach (StatModifier sm in def.equippedStatOffsets)
+                    if (sm?.stat != null) Add(offsets, sm.stat, sm.value);
+
+            StatRequest req = StatRequest.For(def, GenStuff.DefaultStuffFor(def));
+            var result = new Dictionary<StatDef, LensValues>();
+            var values = new List<float>(allowed.Count);
+            var catValues = new List<float>(groups.Count);
+            var scratch = new List<float>(allowed.Count);
+
+            foreach (StatDef stat in statValues.Keys)
+            {
+                if (unevaluableStats.Contains(stat)) continue;
+                // Wearer offsets do not vary by material, so a stat with no material-varying term has nothing to collapse.
+                try { if (!stat.Worker.ShouldShowFor(req)) continue; }
+                catch { continue; }
+
+                values.Clear();
+                try
+                {
+                    foreach (ThingDef stuff in allowed) values.Add(def.GetStatValueAbstract(stat, stuff));
+                }
+                catch
+                {
+                    unevaluableStats.Add(stat);
+                    continue;
+                }
+
+                float lowest = values[0], highest = values[0];
+                for (int i = 1; i < values.Count; i++)
+                {
+                    if (values[i] < lowest) lowest = values[i];
+                    if (values[i] > highest) highest = values[i];
+                }
+
+                catValues.Clear();
+                foreach (List<int> group in groups)
+                {
+                    scratch.Clear();
+                    foreach (int i in group) scratch.Add(values[i]);
+                    scratch.Sort();
+                    catValues.Add(TrimmedMean(scratch, TrimFraction));
+                }
+
+                offsets.TryGetValue(stat, out float offset);
+                result[stat] = new LensValues(lowest + offset, Median(catValues) + offset, highest + offset);
+            }
+
+            return result.Count > 0 ? result : null;
+        }
+
+        // Typical weights categories, not materials, so a category holding forty leathers cannot outvote one holding three metals.
+        private static List<List<int>> BuildCategoryGroups(ThingDef def, List<ThingDef> allowed)
+        {
+            var groups = new List<List<int>>();
+            if (def.stuffCategories != null)
+                foreach (StuffCategoryDef cat in def.stuffCategories)
+                {
+                    var group = new List<int>();
+                    for (int i = 0; i < allowed.Count; i++)
+                        if (allowed[i].stuffProps?.categories != null && allowed[i].stuffProps.categories.Contains(cat))
+                            group.Add(i);
+                    if (group.Count > 0) groups.Add(group);
+                }
+
+            if (groups.Count == 0)
+            {
+                var all = new List<int>(allowed.Count);
+                for (int i = 0; i < allowed.Count; i++) all.Add(i);
+                groups.Add(all);
+            }
+            return groups;
+        }
+
+        // Dims exotic materials without deleting them; a trim that would empty the list degrades to the plain mean.
+        private static float TrimmedMean(List<float> sorted, float fraction)
+        {
+            int drop = (int)(sorted.Count * fraction);
+            int lo = drop, hi = sorted.Count - drop;
+            if (hi <= lo) { lo = 0; hi = sorted.Count; }
+            float sum = 0f;
+            for (int i = lo; i < hi; i++) sum += sorted[i];
+            return sum / (hi - lo);
+        }
+
+        private static float Median(List<float> values)
+        {
+            values.Sort();
+            int n = values.Count;
+            return (n & 1) == 1 ? values[n / 2] : (values[n / 2 - 1] + values[n / 2]) * 0.5f;
+        }
     }
 }

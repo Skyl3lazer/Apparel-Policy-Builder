@@ -17,6 +17,7 @@ namespace ApparelPolicyBuilder
         private const float HeaderHeight = 26f;
         private const float RuleRowHeight = 32f;
         private const float ToolbarHeight = 32f;
+        private const float PercentSuffixWidth = 14f;
 
         // Static so a ruleset can be copied between policy windows.
         private static Ruleset clipboard;
@@ -32,7 +33,6 @@ namespace ApparelPolicyBuilder
         private string searchText = "";
         private Vector2 leftScroll;
         private Vector2 rightScroll;
-        private ThingDef evalStuff; // null = evaluate stuff-powered stats by the material multiplier
         private readonly Dictionary<AttributeRule, string> valueBuffers = new Dictionary<AttributeRule, string>();
 
         public override Vector2 InitialSize => new Vector2(940f, 590f);
@@ -42,7 +42,7 @@ namespace ApparelPolicyBuilder
             this.policy = policy;
             AttributeCache.EnsureBuilt();
 
-            Ruleset stored = GameComponent_ApparelPolicyBuilder.Instance?.GetRuleset(policy);
+            Ruleset stored = RulesetStore.Get(policy);
             working = stored != null ? stored.Clone() : new Ruleset();
 
             apparelGroups = BuildGroups(AttributeCache.Options);
@@ -279,7 +279,7 @@ namespace ApparelPolicyBuilder
 
             const float ddWidth = 150f;
             var ddRect = new Rect(rect.xMax - ddWidth, y, ddWidth, bh);
-            string ddLabel = evalStuff != null ? evalStuff.LabelCap.ToString() : "APB.Multiplier".Translate().ToString();
+            string ddLabel = LensLabel(working.evalMode, working.evalStuff);
             TooltipHandler.TipRegionByKey(ddRect, "APB.EvalAsTip");
             if (Widgets.ButtonText(ddRect, ddLabel))
                 OpenMaterialLensMenu();
@@ -475,12 +475,14 @@ namespace ApparelPolicyBuilder
                     RowLabel(nameRect, rule.stat?.LabelCap ?? "?");
                     if (rule.stat != null && !rule.stat.description.NullOrEmpty())
                         TooltipHandler.TipRegion(nameRect, rule.stat.description);
-                    float modeW = valueCol - gap - fieldW;
+                    // The "%" suffix comes out of the mode button so the entry box keeps room for a signed decimal.
+                    float suffixW = PercentEntry.Applies(rule.stat) ? PercentSuffixWidth : 0f;
+                    float modeW = valueCol - gap - fieldW - suffixW;
                     if (Widgets.ButtonText(new Rect(valueX, row.y, modeW, row.height),
                             ("APB.Mode." + rule.numericMode).Translate().CapitalizeFirst()))
                         OpenModeMenu(rule);
                     if (rule.NeedsThreshold)
-                        DrawThresholdField(new Rect(valueX + modeW + gap, row.y, fieldW, row.height), rule);
+                        DrawThresholdField(new Rect(valueX + modeW + gap, row.y, fieldW + suffixW, row.height), rule);
                     break;
                 case RuleAttributeKind.Categorical:
                     RowLabel(nameRect, OptionFor(rule)?.label ?? rule.attrKey);
@@ -499,9 +501,7 @@ namespace ApparelPolicyBuilder
                     break;
                 case RuleAttributeKind.HitPoints:
                     RowLabel(nameRect, "APB.Facet.HitPoints".Translate());
-                    const float pctW = 14f;
-                    DrawPercentField(new Rect(valueX, row.y, valueCol - pctW, row.height), rule);
-                    RowLabel(new Rect(valueX + valueCol - pctW + 2f, row.y, pctW, row.height), "%");
+                    DrawPercentField(DrawPercentSuffix(valueRect), rule);
                     break;
                 case RuleAttributeKind.SpecialFilter:
                     RowLabel(new Rect(x, row.y, Mathf.Max(deleteRect.x - gap - x, 40f), row.height),
@@ -514,11 +514,28 @@ namespace ApparelPolicyBuilder
 
         private void DrawThresholdField(Rect rect, AttributeRule rule)
         {
-            if (!valueBuffers.TryGetValue(rule, out string buffer)) buffer = rule.threshold.ToString("0.###");
-            Widgets.TextFieldNumeric(rect, ref rule.threshold, ref buffer, -1e9f, 1e9f);
+            valueBuffers.TryGetValue(rule, out string buffer);
+            DrawThreshold(rect, rule.stat, ref rule.threshold, ref buffer);
             valueBuffers[rule] = buffer;
         }
 
+        private static void DrawThreshold(Rect rect, StatDef stat, ref float threshold, ref string buffer)
+        {
+            if (!PercentEntry.Applies(stat))
+            {
+                buffer ??= threshold.ToString("0.###");
+                Widgets.TextFieldNumeric(rect, ref threshold, ref buffer, -1e9f, 1e9f);
+                return;
+            }
+
+            Rect field = DrawPercentSuffix(rect);
+            float pct = threshold * 100f;
+            buffer ??= PercentEntry.Display(threshold, stat);
+            Widgets.TextFieldNumeric(field, ref pct, ref buffer, -1e9f, 1e9f);
+            threshold = pct / 100f;
+        }
+
+        // Vanilla's own hit-points filter is whole-percent clamped 0-1, so this one rounds where DrawThreshold must not.
         private void DrawPercentField(Rect rect, AttributeRule rule)
         {
             float pct = Mathf.Round(rule.threshold * 100f);
@@ -526,6 +543,12 @@ namespace ApparelPolicyBuilder
             Widgets.TextFieldNumeric(rect, ref pct, ref buffer, 0f, 100f);
             rule.threshold = pct / 100f;
             valueBuffers[rule] = buffer;
+        }
+
+        private static Rect DrawPercentSuffix(Rect slot)
+        {
+            RowLabel(new Rect(slot.xMax - PercentSuffixWidth + 2f, slot.y, PercentSuffixWidth, slot.height), "%");
+            return new Rect(slot.x, slot.y, slot.width - PercentSuffixWidth, slot.height);
         }
 
         private static void DrawFaded(Rect rect, string text, TextAnchor anchor)
@@ -578,7 +601,7 @@ namespace ApparelPolicyBuilder
             if (Widgets.ButtonText(applyRect, "APB.Apply".Translate()))
             {
                 Commit();
-                working.ApplyTo(policy, evalStuff);
+                working.ApplyTo(policy);
                 Close();
             }
             TooltipHandler.TipRegionByKey(saveRect, "APB.SaveTip");
@@ -592,7 +615,7 @@ namespace ApparelPolicyBuilder
         }
 
         private void Commit()
-            => GameComponent_ApparelPolicyBuilder.Instance?.Store(policy, working.Clone());
+            => RulesetStore.Set(policy, working.Clone());
 
         public bool WorkingIsEmpty => working.rules.Count == 0;
         public Ruleset WorkingSnapshot() => working.Clone();
@@ -726,14 +749,40 @@ namespace ApparelPolicyBuilder
         {
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("APB.Multiplier".Translate(), () => evalStuff = null)
+                Mode(MaterialLensMode.Highest),
+                Mode(MaterialLensMode.Typical),
+                Mode(MaterialLensMode.Lowest),
+                Mode(MaterialLensMode.Multiplier)
             };
             foreach (ThingDef material in AttributeCache.StuffMaterials)
             {
                 ThingDef captured = material;
-                options.Add(new FloatMenuOption(material.LabelCap, () => evalStuff = captured));
+                options.Add(new FloatMenuOption(material.LabelCap, () =>
+                {
+                    working.evalMode = MaterialLensMode.Material;
+                    working.evalStuff = captured;
+                }));
             }
             Find.WindowStack.Add(new FloatMenu(options));
+
+            FloatMenuOption Mode(MaterialLensMode m)
+                => new FloatMenuOption(LensLabel(m, null), () =>
+                {
+                    working.evalMode = m;
+                    working.evalStuff = null;
+                });
+        }
+
+        private static string LensLabel(MaterialLensMode mode, ThingDef stuff)
+        {
+            switch (mode)
+            {
+                case MaterialLensMode.Lowest: return "APB.Lens.Lowest".Translate();
+                case MaterialLensMode.Typical: return "APB.Lens.Typical".Translate();
+                case MaterialLensMode.Highest: return "APB.Lens.Highest".Translate();
+                case MaterialLensMode.Material when stuff != null: return stuff.LabelCap;
+                default: return "APB.Multiplier".Translate();
+            }
         }
     }
 }

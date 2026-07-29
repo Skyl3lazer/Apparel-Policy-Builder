@@ -223,12 +223,13 @@ namespace ApparelPolicyBuilder
                 RowLabel(nameRect, c.stat?.LabelCap ?? "?");
                 if (c.stat != null && !c.stat.description.NullOrEmpty())
                     TooltipHandler.TipRegion(nameRect, c.stat.description);
-                float modeW = valueCol - gap - fieldW;
+                float suffixW = PercentEntry.Applies(c.stat) ? PercentSuffixWidth : 0f;
+                float modeW = valueCol - gap - fieldW - suffixW;
                 if (Widgets.ButtonText(new Rect(valueX, row.y, modeW, row.height),
                         ("APB.Mode." + c.numericMode).Translate().CapitalizeFirst()))
                     OpenCondModeMenu(c);
                 if (c.NeedsThreshold)
-                    DrawCondThreshold(new Rect(valueX + modeW + gap, row.y, fieldW, row.height), c);
+                    DrawCondThreshold(new Rect(valueX + modeW + gap, row.y, fieldW + suffixW, row.height), c);
             }
         }
 
@@ -251,8 +252,8 @@ namespace ApparelPolicyBuilder
 
         private void DrawCondThreshold(Rect rect, Condition c)
         {
-            if (!condBuffers.TryGetValue(c, out string buffer)) buffer = c.threshold.ToString("0.###");
-            Widgets.TextFieldNumeric(rect, ref c.threshold, ref buffer, -1e9f, 1e9f);
+            condBuffers.TryGetValue(c, out string buffer);
+            DrawThreshold(rect, c.stat, ref c.threshold, ref buffer);
             condBuffers[c] = buffer;
         }
 
