@@ -13,11 +13,11 @@ namespace ApparelPolicyBuilder
 
         // Foreign Policies reuse id 0, so they must never be keyed here. RulesetStore routes them to mod settings.
         public Ruleset GetRuleset(ApparelPolicy policy)
-            => RulesetStore.IsColonyOwned(policy) && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
+            => policy != null && rulesets.TryGetValue(policy.id, out Ruleset r) ? r : null;
 
         public void Store(ApparelPolicy policy, Ruleset ruleset)
         {
-            if (!RulesetStore.IsColonyOwned(policy)) return;
+            if (policy == null) return;
             if (ruleset == null || ruleset.IsEmpty) rulesets.Remove(policy.id);
             else rulesets[policy.id] = ruleset;
         }

@@ -201,8 +201,12 @@ namespace ApparelPolicyBuilder
             Widgets.EndScrollView();
         }
 
+        private static List<LayerGroup> cachedLayerGroups;
+
         private static List<LayerGroup> LayerGroups()
-            => AttributeCache.Layers
+        {
+            if (cachedLayerGroups != null) return cachedLayerGroups;
+            cachedLayerGroups = AttributeCache.Layers
                 .GroupBy(SourceOf)
                 .Select(gr => new LayerGroup
                 {
@@ -213,6 +217,8 @@ namespace ApparelPolicyBuilder
                 })
                 .OrderBy(g => g.order).ThenBy(g => g.label, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            return cachedLayerGroups;
+        }
 
         private static (int order, string label) SourceOf(ApparelLayerDef layer)
         {
