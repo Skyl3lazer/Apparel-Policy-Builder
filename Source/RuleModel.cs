@@ -209,8 +209,9 @@ namespace ApparelPolicyBuilder
         private void ApplyPerDefPass(ThingFilter filter, List<ApparelAttributeInfo> universe, bool weapon)
         {
             MaterialLens lens = Lens;
-            foreach (ApparelAttributeInfo info in universe)
+            for (int u = 0; u < universe.Count; u++)
             {
+                ApparelAttributeInfo info = universe[u];
                 bool allow = true;
                 for (int i = 0; i < rules.Count; i++)
                 {
@@ -262,8 +263,11 @@ namespace ApparelPolicyBuilder
                 if (!AttributeCache.IsStuffCategory(token)) continue;
                 anyCat = true;
                 bool covered = false;
-                foreach (AttributeRule rule in forbids)
+                for (int i = 0; i < forbids.Count; i++)
+                {
+                    AttributeRule rule = forbids[i];
                     if (rule.categoricalValue == token && rule.InScope(info)) { covered = true; break; }
+                }
                 if (!covered) return false;
             }
             return anyCat;

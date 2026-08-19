@@ -66,11 +66,13 @@ namespace ApparelPolicyBuilder
             }
         }
 
+        private static readonly HashSet<string> emptyTokens = new HashSet<string>();
+
         public bool HasCategorical(string attrKey, string token)
             => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) && set.Contains(token);
 
-        public IEnumerable<string> TokensFor(string attrKey)
-            => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) ? set : Enumerable.Empty<string>();
+        public HashSet<string> TokensFor(string attrKey)
+            => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) ? set : emptyTokens;
     }
 
     public class CategoricalValue
@@ -357,7 +359,16 @@ namespace ApparelPolicyBuilder
                 if (values.Count == 0) continue;
                 // Numeric-valued card entries (weapon stats like Miss Radius, percentages) aren't
                 // meaningful as a value picker and have no StatDef to filter on, so skip them.
-                if (values.All(v => LooksNumeric(v.token))) continue;
+                bool allNumeric = true;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    if (!LooksNumeric(values[i].token))
+                    {
+                        allNumeric = false;
+                        break;
+                    }
+                }
+                if (allNumeric) continue;
 
                 string key = "cat:" + entry.category.defName + ":" + label;
                 if (!catOptions.TryGetValue(key, out AttributeOption opt))
