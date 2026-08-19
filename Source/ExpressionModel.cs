@@ -110,12 +110,18 @@ namespace ApparelPolicyBuilder
         {
             if (any)
             {
-                foreach (Expression c in children)
+                for (int i = 0; i < children.Count; i++)
+                {
+                    Expression c = children[i];
                     if (c != null && c.Evaluate(info, lens)) return true;
+                }
                 return false;
             }
-            foreach (Expression c in children)
+            for (int i = 0; i < children.Count; i++)
+            {
+                Expression c = children[i];
                 if (c == null || !c.Evaluate(info, lens)) return false;
+            }
             return true;
         }
 

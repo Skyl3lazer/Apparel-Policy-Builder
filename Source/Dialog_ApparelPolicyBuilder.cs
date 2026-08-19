@@ -146,7 +146,20 @@ namespace ApparelPolicyBuilder
             for (int i = 0; i < groups.Count; i++)
             {
                 OptionGroup g = groups[i];
-                List<AttributeOption> visible = g.options.Where(OptionMatches).ToList();
+                List<AttributeOption> visible;
+                if (!searching)
+                {
+                    visible = g.options;
+                }
+                else
+                {
+                    visible = new List<AttributeOption>();
+                    for (int j = 0; j < g.options.Count; j++)
+                    {
+                        AttributeOption opt = g.options[j];
+                        if (OptionMatches(opt)) visible.Add(opt);
+                    }
+                }
                 visiblePerGroup[i] = visible;
                 if (visible.Count == 0) continue;
                 viewHeight += HeaderHeight;
@@ -162,7 +175,7 @@ namespace ApparelPolicyBuilder
             {
                 OptionGroup g = groups[i];
                 List<AttributeOption> visible = visiblePerGroup[i];
-                if (visible.Count == 0) continue;
+                if (visible == null || visible.Count == 0) continue;
 
                 bool expanded = searching || !collapsedGroups.Contains(g.label);
 
@@ -183,14 +196,16 @@ namespace ApparelPolicyBuilder
                 if (!expanded) continue;
 
                 bool insertMode = pendingInsert != null;
-                foreach (AttributeOption opt in visible)
+                for (int j = 0; j < visible.Count; j++)
                 {
+                    AttributeOption opt = visible[j];
                     var optRect = new Rect(0f, y, viewRect.width, RowHeight);
                     bool selectable = !insertMode || IsPerDefOption(opt);
                     if (Mouse.IsOver(optRect) && selectable) Widgets.DrawHighlight(optRect);
                     var labelRect = new Rect(optRect.x + 14f, optRect.y, optRect.width - 14f, optRect.height);
-                    if (selectable) Widgets.Label(labelRect, OptionLabel(opt));
-                    else DrawFaded(labelRect, OptionLabel(opt), TextAnchor.UpperLeft);
+                    string optLabel = OptionLabel(opt);
+                    if (selectable) Widgets.Label(labelRect, optLabel);
+                    else DrawFaded(labelRect, optLabel, TextAnchor.UpperLeft);
                     if (selectable && Widgets.ButtonInvisible(optRect)) OnAttributeClicked(opt);
                     y += RowHeight;
                 }
@@ -220,25 +235,10 @@ namespace ApparelPolicyBuilder
             return key;
         }
 
-        private static string OptionLabel(AttributeOption o)
-        {
-            switch (o.kind)
-            {
-                case RuleAttributeKind.Quality: return "APB.Facet.Quality".Translate();
-                case RuleAttributeKind.HitPoints: return "APB.Facet.HitPoints".Translate();
-                case RuleAttributeKind.Material: return "APB.Facet.Material".Translate();
-                case RuleAttributeKind.SpecialFilter: return CleanSpecialFilterLabel(o.specialFilter);
-                default: return o.label;
-            }
-        }
+        private static string OptionLabel(AttributeOption o) => o.label;
 
         private static string CleanSpecialFilterLabel(SpecialThingFilterDef sf)
-        {
-            string label = sf?.LabelCap;
-            if (label.NullOrEmpty()) return label;
-            return label.StartsWith("allow ", StringComparison.OrdinalIgnoreCase)
-                ? label.Substring(6).CapitalizeFirst() : label;
-        }
+            => AttributeCache.CleanSpecialFilterLabel(sf);
 
         private class OptionGroup
         {
@@ -251,7 +251,7 @@ namespace ApparelPolicyBuilder
         {
             public string key;
             public string label;
-            public Func<AttributeRule, bool> match;
+            public List<AttributeRule> rules = new List<AttributeRule>();
         }
 
         // ---- Right: copy/paste + material lens ----
@@ -304,22 +304,40 @@ namespace ApparelPolicyBuilder
             float contentWidth = inner.width - 16f;
 
             List<ScopeGroup> groups = ScopeGroups();
-            bool hasVisibleExpr = working.expressionRules.Any(ExprVisible);
+            bool hasVisibleExpr = false;
+            for (int i = 0; i < working.expressionRules.Count; i++)
+            {
+                if (ExprVisible(working.expressionRules[i]))
+                {
+                    hasVisibleExpr = true;
+                    break;
+                }
+            }
             bool hasExprSection = advanced || hasVisibleExpr;
             float expressionsGap = groups.Count > 0 && hasExprSection ? 10f : 0f;
 
-            bool noVisibleContent = !working.rules.Any(RuleVisible) && !hasVisibleExpr;
+            bool hasVisibleRule = false;
+            for (int i = 0; i < working.rules.Count; i++)
+            {
+                if (RuleVisible(working.rules[i]))
+                {
+                    hasVisibleRule = true;
+                    break;
+                }
+            }
+            bool noVisibleContent = !hasVisibleRule && !hasVisibleExpr;
             string emptyText = noVisibleContent
                 ? "APB.NoRules".Translate() + "\n" + (advanced ? "APB.NoRulesExpression" : "APB.NoRulesAdvancedHint").Translate()
                 : null;
             float emptyHeight = emptyText != null ? Text.CalcHeight(emptyText, contentWidth) : 0f;
 
             float viewHeight = 0f;
-            foreach (ScopeGroup g in groups)
+            for (int i = 0; i < groups.Count; i++)
             {
+                ScopeGroup g = groups[i];
                 viewHeight += HeaderHeight;
                 if (!collapsedScopes.Contains(g.key))
-                    viewHeight += working.rules.Count(g.match) * RuleRowHeight;
+                    viewHeight += g.rules.Count * RuleRowHeight;
             }
             viewHeight += emptyHeight + expressionsGap + ExpressionsSectionHeight(advanced);
 
@@ -329,8 +347,8 @@ namespace ApparelPolicyBuilder
             AttributeRule toDelete = null;
             pendingTreeOp = null;
 
-            foreach (ScopeGroup g in groups)
-                DrawScopeGroup(g, viewRect.width, ref y, ref toDelete);
+            for (int i = 0; i < groups.Count; i++)
+                DrawScopeGroup(groups[i], viewRect.width, ref y, ref toDelete);
 
             if (emptyText != null)
             {
@@ -362,28 +380,67 @@ namespace ApparelPolicyBuilder
         private List<ScopeGroup> ScopeGroups()
         {
             var groups = new List<ScopeGroup>();
-            if (working.rules.Any(IsApparelGlobal))
-                groups.Add(new ScopeGroup { key = "global", label = "APB.Global".Translate(), match = IsApparelGlobal });
-            if (working.rules.Any(r => r.exceptUtility))
-                groups.Add(new ScopeGroup { key = "exceptutil", label = "APB.GlobalExceptUtility".Translate(), match = r => r.exceptUtility });
-            if (working.rules.Any(r => r.utilityOnly))
-                groups.Add(new ScopeGroup { key = "utilityonly", label = "APB.UtilityOnly".Translate(), match = r => r.utilityOnly });
-            foreach (ApparelLayerDef layer in working.rules
-                .Where(r => r.layerScope != null && !r.weaponScope).Select(r => r.layerScope).Distinct()
-                .OrderBy(l => l.drawOrder))
+            ScopeGroup globalGroup = null;
+            ScopeGroup exceptUtilGroup = null;
+            ScopeGroup utilityOnlyGroup = null;
+            ScopeGroup weaponGroup = null;
+            Dictionary<ApparelLayerDef, ScopeGroup> layerGroups = null;
+
+            bool weaponsActive = AttributeCache.WeaponsActive;
+            for (int i = 0; i < working.rules.Count; i++)
             {
-                ApparelLayerDef captured = layer;
-                groups.Add(new ScopeGroup { key = "layer:" + captured.defName, label = captured.LabelCap, match = r => r.layerScope == captured && !r.weaponScope });
+                AttributeRule r = working.rules[i];
+                if (IsApparelGlobal(r))
+                {
+                    globalGroup ??= new ScopeGroup { key = "global", label = "APB.Global".Translate() };
+                    globalGroup.rules.Add(r);
+                }
+                else if (r.exceptUtility)
+                {
+                    exceptUtilGroup ??= new ScopeGroup { key = "exceptutil", label = "APB.GlobalExceptUtility".Translate() };
+                    exceptUtilGroup.rules.Add(r);
+                }
+                else if (r.utilityOnly)
+                {
+                    utilityOnlyGroup ??= new ScopeGroup { key = "utilityonly", label = "APB.UtilityOnly".Translate() };
+                    utilityOnlyGroup.rules.Add(r);
+                }
+                else if (r.layerScope != null && !r.weaponScope)
+                {
+                    layerGroups ??= new Dictionary<ApparelLayerDef, ScopeGroup>();
+                    if (!layerGroups.TryGetValue(r.layerScope, out ScopeGroup lg))
+                    {
+                        lg = new ScopeGroup { key = "layer:" + r.layerScope.defName, label = r.layerScope.LabelCap };
+                        layerGroups[r.layerScope] = lg;
+                    }
+                    lg.rules.Add(r);
+                }
+                else if (weaponsActive && r.weaponScope)
+                {
+                    weaponGroup ??= new ScopeGroup { key = "weapon", label = "APB.WeaponScope".Translate() };
+                    weaponGroup.rules.Add(r);
+                }
             }
-            if (AttributeCache.WeaponsActive && working.rules.Any(r => r.weaponScope))
-                groups.Add(new ScopeGroup { key = "weapon", label = "APB.WeaponScope".Translate(), match = r => r.weaponScope });
+
+            if (globalGroup != null) groups.Add(globalGroup);
+            if (exceptUtilGroup != null) groups.Add(exceptUtilGroup);
+            if (utilityOnlyGroup != null) groups.Add(utilityOnlyGroup);
+            if (layerGroups != null)
+            {
+                var sortedLayers = new List<ApparelLayerDef>(layerGroups.Keys);
+                sortedLayers.Sort((a, b) => a.drawOrder.CompareTo(b.drawOrder));
+                for (int i = 0; i < sortedLayers.Count; i++)
+                    groups.Add(layerGroups[sortedLayers[i]]);
+            }
+            if (weaponGroup != null) groups.Add(weaponGroup);
+
             return groups;
         }
 
         private void DrawScopeGroup(ScopeGroup group, float width, ref float y, ref AttributeRule toDelete)
         {
             bool collapsed = collapsedScopes.Contains(group.key);
-            int count = working.rules.Count(group.match);
+            int count = group.rules.Count;
 
             var headerRect = new Rect(0f, y, width, HeaderHeight);
             if (Mouse.IsOver(headerRect)) Widgets.DrawHighlight(headerRect);
@@ -399,9 +456,9 @@ namespace ApparelPolicyBuilder
 
             if (collapsed) return;
 
-            foreach (AttributeRule rule in working.rules)
+            for (int i = 0; i < group.rules.Count; i++)
             {
-                if (!group.match(rule)) continue;
+                AttributeRule rule = group.rules[i];
                 var band = new Rect(0f, y, width, RuleRowHeight);
                 if (Mouse.IsOver(band)) Widgets.DrawHighlight(band);
                 var rowRect = new Rect(12f, y, width - 12f, RuleRowHeight);

@@ -66,11 +66,13 @@ namespace ApparelPolicyBuilder
             }
         }
 
+        private static readonly HashSet<string> emptyTokens = new HashSet<string>();
+
         public bool HasCategorical(string attrKey, string token)
             => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) && set.Contains(token);
 
-        public IEnumerable<string> TokensFor(string attrKey)
-            => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) ? set : Enumerable.Empty<string>();
+        public HashSet<string> TokensFor(string attrKey)
+            => categoricalTokens.TryGetValue(attrKey, out HashSet<string> set) ? set : emptyTokens;
     }
 
     public class CategoricalValue
@@ -275,22 +277,30 @@ namespace ApparelPolicyBuilder
                 });
             options.AddRange(categorical);
             if (qualityActive)
-                options.Add(new AttributeOption { key = "facet:quality", order = 0, kind = RuleAttributeKind.Quality });
+                options.Add(new AttributeOption { key = "facet:quality", label = "APB.Facet.Quality".Translate(), order = 0, kind = RuleAttributeKind.Quality });
             if (hpActive)
-                options.Add(new AttributeOption { key = "facet:hitpoints", order = 1, kind = RuleAttributeKind.HitPoints });
+                options.Add(new AttributeOption { key = "facet:hitpoints", label = "APB.Facet.HitPoints".Translate(), order = 1, kind = RuleAttributeKind.HitPoints });
             if (materialActive)
-                options.Add(new AttributeOption { key = "facet:material", order = 2, kind = RuleAttributeKind.Material });
+                options.Add(new AttributeOption { key = "facet:material", label = "APB.Facet.Material".Translate(), order = 2, kind = RuleAttributeKind.Material });
             int i = 10;
             foreach (SpecialThingFilterDef sf in specialFilters)
                 options.Add(new AttributeOption
                 {
                     key = "sf:" + sf.defName,
-                    label = sf.LabelCap,
+                    label = CleanSpecialFilterLabel(sf),
                     order = i++,
                     kind = RuleAttributeKind.SpecialFilter,
                     specialFilter = sf
                 });
             return options;
+        }
+
+        public static string CleanSpecialFilterLabel(SpecialThingFilterDef sf)
+        {
+            string label = sf?.LabelCap;
+            if (label.NullOrEmpty()) return label;
+            return label.StartsWith("allow ", StringComparison.OrdinalIgnoreCase)
+                ? label.Substring(6).CapitalizeFirst() : label;
         }
 
         // Routing by attachment (weapon-subtree -> weapon palette, else apparel) rather than by what the
@@ -349,7 +359,16 @@ namespace ApparelPolicyBuilder
                 if (values.Count == 0) continue;
                 // Numeric-valued card entries (weapon stats like Miss Radius, percentages) aren't
                 // meaningful as a value picker and have no StatDef to filter on, so skip them.
-                if (values.All(v => LooksNumeric(v.token))) continue;
+                bool allNumeric = true;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    if (!LooksNumeric(values[i].token))
+                    {
+                        allNumeric = false;
+                        break;
+                    }
+                }
+                if (allNumeric) continue;
 
                 string key = "cat:" + entry.category.defName + ":" + label;
                 if (!catOptions.TryGetValue(key, out AttributeOption opt))
